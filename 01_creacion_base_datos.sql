@@ -10,4 +10,5 @@ CREATE TABLE Usuarios (
     nombre VARCHAR(100) NOT NULL
 );
 GO
-  
+
+--Prueba
