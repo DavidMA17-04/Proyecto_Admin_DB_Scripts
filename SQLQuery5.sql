@@ -7,3 +7,5 @@ if exists (select * from mytitles
 Else
       print ‘Todos los títulos son menor a $50.00’
  GO
+
+ --hola
