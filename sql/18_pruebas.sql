@@ -141,6 +141,31 @@ BEGIN
         EXEC dbo.sp_AsignarMantenimiento @id_incidencia = @id_incidencia, @id_empleado = @fontanero2,
              @id_tipo_trabajo = 2, @id_mantenimiento = @id_mant OUTPUT;
 
+        -- Trabajo para el usuario "fontanero" (si existe), para probar su módulo de campo:
+        -- una incidencia asignada (Programado) y un mantenimiento preventivo En proceso.
+        DECLARE @fontanero_usuario int;
+        SELECT @fontanero_usuario = u.id_empleado
+        FROM dbo.Usuario_Sistema u JOIN dbo.Empleado e ON e.id_empleado = u.id_empleado
+        WHERE u.nombre_usuario = 'fontanero' AND e.activo = 1;
+
+        IF @fontanero_usuario IS NOT NULL
+        BEGIN
+            SELECT @m = id_medidor FROM @conexiones WHERE n = 2;
+            EXEC dbo.sp_RegistrarIncidente @id_medidor = @m, @id_tipo_incidencia = 1,
+                 @descripcion = 'Fuga en la tubería de la acera', @ubicacion = 'Frente a la casa 2',
+                 @id_incidencia = @id_incidencia OUTPUT;
+            EXEC dbo.sp_AsignarMantenimiento @id_incidencia = @id_incidencia, @id_empleado = @fontanero_usuario,
+                 @id_tipo_trabajo = 1, @descripcion = 'Reparar fuga reportada por el abonado',
+                 @id_mantenimiento = @id_mant OUTPUT;
+
+            SELECT @c = id_conexion FROM @conexiones WHERE n = 4;
+            EXEC dbo.sp_ProgramarMantenimiento @id_empleado = @fontanero_usuario, @id_tipo_trabajo = 2,
+                 @id_conexion = @c, @descripcion = 'Revisión preventiva del medidor comercial',
+                 @id_mantenimiento = @id_mant OUTPUT;
+            EXEC dbo.sp_CambiarEstadoMantenimiento @id_mantenimiento = @id_mant, @nuevo_estado = 'En proceso',
+                 @anotacion = 'Se inició la revisión.';
+        END
+
         COMMIT;
     END TRY
     BEGIN CATCH

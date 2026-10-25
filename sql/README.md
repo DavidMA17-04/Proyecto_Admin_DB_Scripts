@@ -21,6 +21,8 @@ Usuarios iniciales de la aplicación (cámbielos con `sp_CambiarContrasenaUsuari
 |---------|----------------|---------------------------|
 | admin   | Asada#2026     | Administrador del Sistema |
 | dba     | AsadaDBA#2026  | Administrador de BD       |
+| fontanero | Fontanero#2026 | Fontanero               |
+| junta   | Junta#2026     | Junta Directiva           |
 
 ## Probar
 

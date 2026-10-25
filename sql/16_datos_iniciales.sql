@@ -159,5 +159,39 @@ EXEC dbo.sp_CrearUsuarioSistema @id_empleado = @id_empleado, @id_rol = @id_rol,
     @nombre_usuario = 'dba', @contrasena = N'AsadaDBA#2026';
 GO
 
-PRINT 'Datos iniciales cargados. Usuarios: admin / Asada#2026 y dba / AsadaDBA#2026 (cámbielas).';
+/* ---------------------------------------------------------------------
+   Usuarios de campo y de la Junta Directiva. Se pueden volver a ejecutar
+   sobre una base ya instalada: solo crean lo que falta.
+   --------------------------------------------------------------------- */
+DECLARE @id_empleado int, @id_rol int;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.Usuario_Sistema WHERE nombre_usuario = 'fontanero')
+BEGIN
+    SELECT @id_empleado = id_empleado FROM dbo.Empleado WHERE cedula = '100000003';
+    IF @id_empleado IS NULL
+        EXEC dbo.sp_AgregarEmpleado
+            @cedula = '100000003', @nombre_empleado = 'Luis', @apellido1_empleado = 'Campos',
+            @apellido2_empleado = 'Fontanero', @puesto = 'Fontanero', @telefono = '8800-0003',
+            @id_empleado = @id_empleado OUTPUT;
+    SELECT @id_rol = id_rol FROM dbo.Rol WHERE nombre_rol = 'Fontanero';
+    EXEC dbo.sp_CrearUsuarioSistema @id_empleado = @id_empleado, @id_rol = @id_rol,
+        @nombre_usuario = 'fontanero', @contrasena = N'Fontanero#2026';
+END
+
+SET @id_empleado = NULL;
+IF NOT EXISTS (SELECT 1 FROM dbo.Usuario_Sistema WHERE nombre_usuario = 'junta')
+BEGIN
+    SELECT @id_empleado = id_empleado FROM dbo.Empleado WHERE cedula = '100000004';
+    IF @id_empleado IS NULL
+        EXEC dbo.sp_AgregarEmpleado
+            @cedula = '100000004', @nombre_empleado = 'Marta', @apellido1_empleado = 'Solano',
+            @apellido2_empleado = 'Junta', @puesto = 'Presidenta Junta', @telefono = '8800-0004',
+            @id_empleado = @id_empleado OUTPUT;
+    SELECT @id_rol = id_rol FROM dbo.Rol WHERE nombre_rol = 'Junta Directiva';
+    EXEC dbo.sp_CrearUsuarioSistema @id_empleado = @id_empleado, @id_rol = @id_rol,
+        @nombre_usuario = 'junta', @contrasena = N'Junta#2026';
+END
+GO
+
+PRINT 'Datos iniciales cargados. Usuarios: admin / Asada#2026, dba / AsadaDBA#2026, fontanero / Fontanero#2026 y junta / Junta#2026 (cámbielas).';
 GO
