@@ -1,15 +1,13 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
+/* ---------------------------------------------------------------------
    Script 06: Procedimientos - Lecturas y facturación (R2)
-   ===================================================================== */
+   --------------------------------------------------------------------*/
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.4 Lectura
-   --------------------------------------------------------------------- */
+   --Lectura
 -- Registra la lectura mensual. La lectura anterior se toma con fn_ObtenerUltimaLectura.
 -- Al insertar se disparan trg_ActualizarUltimaLectura y trg_VerificarConsumoAlInsertar.
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarLectura
@@ -142,9 +140,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.5 Factura
-   --------------------------------------------------------------------- */
+   --Factura
 -- Genera la factura de una lectura con la tarifa vigente a la fecha de la lectura.
 CREATE OR ALTER PROCEDURE dbo.sp_GenerarFactura
     @id_lectura  int,
@@ -255,12 +251,12 @@ BEGIN
 END;
 GO
 
--- R2-02: búsqueda de facturas por abonado, conexión, periodo o estado.
+--búsqueda de facturas por abonado, conexión, periodo o estado.
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarFacturas
     @tipo_abonado varchar(10) = NULL,
     @id_abonado   int         = NULL,
     @id_conexion  int         = NULL,
-    @periodo      int         = NULL,   -- AAAAMM
+    @periodo      int         = NULL,   
     @estado       varchar(10) = NULL
 AS
 BEGIN

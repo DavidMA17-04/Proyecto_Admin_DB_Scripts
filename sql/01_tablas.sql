@@ -1,20 +1,13 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
+/* ---------------------------------------------------------------------
    Script 01: Tablas de la base transaccional ASADA
-   Basado en la sección 14 (Diccionario de Datos) del documento.
-   Las columnas marcadas con  -- [AGREGADO]  no aparecen en el diccionario,
-   pero las exigen objetos de la sección 12 (ver README.md).
-   Los campos "text" del diccionario se implementan como varchar(max),
-   porque text está obsoleto en SQL Server y no se puede usar en triggers.
-   ===================================================================== */
+   --------------------------------------------------------------------- */
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   Seguridad: empleados, roles, permisos, usuarios y bitácora
-   --------------------------------------------------------------------- */
+   --Seguridad: empleados, roles, permisos, usuarios y bitácora
 CREATE TABLE dbo.Empleado (
     id_empleado         int IDENTITY(1,1) NOT NULL,
     cedula              varchar(20)  NOT NULL,
@@ -67,11 +60,11 @@ CREATE TABLE dbo.Usuario_Sistema (
     id_empleado          int          NOT NULL,
     id_rol               int          NOT NULL,
     nombre_usuario       varchar(50)  NOT NULL,
-    -- Se guarda el hash SHA2-256 en hexadecimal (64 caracteres), nunca la contraseña en claro.
+    -- Se guarda el hash SHA2-256 en hexadecimal
     contrasena_usuario   varchar(64)  NOT NULL,
     activo               bit          NOT NULL CONSTRAINT DF_UsuarioSistema_Activo DEFAULT (1),
-    intentos_fallidos    int          NOT NULL CONSTRAINT DF_UsuarioSistema_Intentos DEFAULT (0),   -- [AGREGADO]
-    fecha_ultimo_acceso  datetime     NULL,                                                         -- [AGREGADO]
+    intentos_fallidos    int          NOT NULL CONSTRAINT DF_UsuarioSistema_Intentos DEFAULT (0),   
+    fecha_ultimo_acceso  datetime     NULL,                                                         
     CONSTRAINT PK_Usuario_Sistema PRIMARY KEY (id_usuario_sistema),
     CONSTRAINT FK_UsuarioSistema_Empleado FOREIGN KEY (id_empleado) REFERENCES dbo.Empleado (id_empleado),
     CONSTRAINT FK_UsuarioSistema_Rol      FOREIGN KEY (id_rol)      REFERENCES dbo.Rol (id_rol),
@@ -81,24 +74,22 @@ GO
 
 CREATE TABLE dbo.Bitacora (
     id_bitacora         int IDENTITY(1,1) NOT NULL,
-    -- NULL cuando la acción la ejecuta un proceso automático (job, ETL) sin sesión de usuario.
+    -- NULL cuando la acción la ejecuta un proceso automático (job, ETL) sin sesión de usuario
     id_usuario_sistema  int          NULL,
     fecha_registro      datetime     NOT NULL CONSTRAINT DF_Bitacora_Fecha DEFAULT (GETDATE()),
     accion              varchar(15)  NOT NULL,
-    tabla_afectada      varchar(50)  NULL,                                                          -- [AGREGADO]
+    tabla_afectada      varchar(50)  NULL,                                                          
     descripcion         varchar(max) NULL,
     CONSTRAINT PK_Bitacora PRIMARY KEY (id_bitacora),
     CONSTRAINT FK_Bitacora_UsuarioSistema FOREIGN KEY (id_usuario_sistema) REFERENCES dbo.Usuario_Sistema (id_usuario_sistema)
 ) ON Auditoria;
 GO
 
-/* ---------------------------------------------------------------------
-   Tarifas
-   --------------------------------------------------------------------- */
+   --Tarifas
 CREATE TABLE dbo.Tipo_Tarifa (
     id_tipo_tarifa  int IDENTITY(1,1) NOT NULL,
     nombre_tarifa   varchar(15) NOT NULL,
-    activo          bit NOT NULL CONSTRAINT DF_TipoTarifa_Activo DEFAULT (1),                       -- [AGREGADO]
+    activo          bit NOT NULL CONSTRAINT DF_TipoTarifa_Activo DEFAULT (1),                       
     CONSTRAINT PK_Tipo_Tarifa PRIMARY KEY (id_tipo_tarifa)
 ) ON Facturacion;
 GO
@@ -108,14 +99,14 @@ CREATE TABLE dbo.Tarifa (
     id_tipo_tarifa  int           NOT NULL,
     monto_fijo      decimal(10,2) NOT NULL,
     monto_por_m3    decimal(10,2) NOT NULL,
-    activo          bit           NOT NULL CONSTRAINT DF_Tarifa_Activo DEFAULT (1),                 -- [AGREGADO]
+    activo          bit           NOT NULL CONSTRAINT DF_Tarifa_Activo DEFAULT (1),                 
     CONSTRAINT PK_Tarifa PRIMARY KEY (id_tarifa),
     CONSTRAINT FK_Tarifa_TipoTarifa FOREIGN KEY (id_tipo_tarifa) REFERENCES dbo.Tipo_Tarifa (id_tipo_tarifa),
     CONSTRAINT CK_Tarifa_MontosPositivos CHECK (monto_fijo > 0 AND monto_por_m3 > 0)
 ) ON Facturacion;
 GO
 
--- [AGREGADO] Tabla usada por sp_ConsultarHistorialTarifa y fn_ObtenerTarifaVigente.
+--Tabla usada por sp_ConsultarHistorialTarifa y fn_ObtenerTarifaVigente
 CREATE TABLE dbo.Historial_Tarifa (
     id_historial_tarifa    int IDENTITY(1,1) NOT NULL,
     id_tarifa              int           NOT NULL,
@@ -131,9 +122,7 @@ CREATE TABLE dbo.Historial_Tarifa (
 ) ON Auditoria;
 GO
 
-/* ---------------------------------------------------------------------
-   Abonados, conexiones y medidores
-   --------------------------------------------------------------------- */
+  -- Abonados, conexiones y medidores
 CREATE TABLE dbo.Abonado_Fisico (
     id_abonado_fisico    int IDENTITY(1,1) NOT NULL,
     tipo_identificacion  varchar(20)  NOT NULL,
@@ -146,7 +135,7 @@ CREATE TABLE dbo.Abonado_Fisico (
     telefono             varchar(20)  NULL,
     correo_electronico   varchar(100) NULL,
     fecha_registro       datetime     NOT NULL CONSTRAINT DF_AbonadoFisico_Fecha DEFAULT (GETDATE()),
-    activo               bit          NOT NULL CONSTRAINT DF_AbonadoFisico_Activo DEFAULT (1),      -- [AGREGADO]
+    activo               bit          NOT NULL CONSTRAINT DF_AbonadoFisico_Activo DEFAULT (1),      
     CONSTRAINT PK_Abonado_Fisico PRIMARY KEY (id_abonado_fisico),
     CONSTRAINT CK_AbonadoFisico_TipoId CHECK (tipo_identificacion IN ('FISICA', 'DIMEX', 'NITE', 'PASAPORTE'))
 ) ON Abonados;
@@ -164,7 +153,7 @@ CREATE TABLE dbo.Abonado_Juridico (
     telefono                 varchar(20)  NULL,
     correo_electronico       varchar(100) NULL,
     fecha_registro           datetime     NOT NULL CONSTRAINT DF_AbonadoJuridico_Fecha DEFAULT (GETDATE()),
-    activo                   bit          NOT NULL CONSTRAINT DF_AbonadoJuridico_Activo DEFAULT (1), -- [AGREGADO]
+    activo                   bit          NOT NULL CONSTRAINT DF_AbonadoJuridico_Activo DEFAULT (1), 
     CONSTRAINT PK_Abonado_Juridico PRIMARY KEY (id_abonado_juridico)
 ) ON Abonados;
 GO
@@ -182,7 +171,7 @@ CREATE TABLE dbo.Conexion (
     CONSTRAINT FK_Conexion_AbonadoFisico   FOREIGN KEY (id_abonado_fisico)   REFERENCES dbo.Abonado_Fisico (id_abonado_fisico),
     CONSTRAINT FK_Conexion_AbonadoJuridico FOREIGN KEY (id_abonado_juridico) REFERENCES dbo.Abonado_Juridico (id_abonado_juridico),
     CONSTRAINT FK_Conexion_Tarifa          FOREIGN KEY (id_tarifa)           REFERENCES dbo.Tarifa (id_tarifa),
-    -- Regla de negocio Conexión-Abonado: exactamente un titular, físico o jurídico, nunca ambos ni ninguno.
+    -- Regla de negocio Conexión-Abonado: exactamente un titular, físico o jurídico, nunca ambos ni ninguno
     CONSTRAINT ck_AbonadoORjuridico CHECK (
         (id_abonado_fisico IS NOT NULL AND id_abonado_juridico IS NULL) OR
         (id_abonado_fisico IS NULL AND id_abonado_juridico IS NOT NULL)
@@ -197,24 +186,22 @@ CREATE TABLE dbo.Medidor (
     numero_serie          varchar(20)   NOT NULL,
     fecha_instalacion     datetime      NOT NULL CONSTRAINT DF_Medidor_Fecha DEFAULT (GETDATE()),
     estado                varchar(10)   NOT NULL CONSTRAINT DF_Medidor_Estado DEFAULT ('Activo'),
-    ultima_lectura        decimal(10,2) NULL,                                                       -- [AGREGADO]
-    fecha_ultima_lectura  datetime      NULL,                                                       -- [AGREGADO]
+    ultima_lectura        decimal(10,2) NULL,                                                       
+    fecha_ultima_lectura  datetime      NULL,                                                       
     CONSTRAINT PK_Medidor PRIMARY KEY (id_medidor),
     CONSTRAINT FK_Medidor_Conexion FOREIGN KEY (id_conexion) REFERENCES dbo.Conexion (id_conexion),
     CONSTRAINT CK_Medidor_EstadoValido CHECK (estado IN ('Activo', 'Dañado', 'Sustituido', 'Retirado'))
 ) ON Abonados;
 GO
 
-/* ---------------------------------------------------------------------
-   Lecturas, facturación, pagos y mora
-   --------------------------------------------------------------------- */
+   --Lecturas, facturación, pagos y mora
 CREATE TABLE dbo.Lectura (
     id_lectura            int IDENTITY(1,1) NOT NULL,
     id_medidor            int           NOT NULL,
     fecha_lectura_actual  datetime      NOT NULL CONSTRAINT DF_Lectura_Fecha DEFAULT (GETDATE()),
     lectura_anterior      decimal(10,2) NOT NULL,
     lectura_actual        decimal(10,2) NOT NULL,
-    -- Columna calculada: garantiza que el consumo siempre sea lectura_actual - lectura_anterior.
+    -- Columna calculada: garantiza que el consumo siempre sea lectura_actual - lectura_anterior
     consumo               AS CAST(lectura_actual - lectura_anterior AS decimal(10,2)) PERSISTED,
     CONSTRAINT PK_Lectura PRIMARY KEY (id_lectura),
     CONSTRAINT FK_Lectura_Medidor FOREIGN KEY (id_medidor) REFERENCES dbo.Medidor (id_medidor),
@@ -245,9 +232,10 @@ CREATE TABLE dbo.Recargo_mora (
     id_factura           int           NOT NULL,
     fecha_calculo        datetime      NOT NULL CONSTRAINT DF_RecargoMora_Fecha DEFAULT (GETDATE()),
     porcentaje_aplicado  decimal(5,2)  NOT NULL,
-    monto_recargo        decimal(10,2) NOT NULL,                                                    -- [AGREGADO]
-    estado               varchar(10)   NOT NULL CONSTRAINT DF_RecargoMora_Estado DEFAULT ('Aplicado'), -- [AGREGADO]
-    motivo_anulacion     varchar(250)  NULL,                                                        -- [AGREGADO]
+    monto_recargo        decimal(10,2) NOT NULL,                                                    
+    estado               varchar(10)   NOT NULL CONSTRAINT DF_RecargoMora_Estado DEFAULT ('Aplicado'), 
+    motivo_anulacion     varchar(250)  NULL,                                                        
+    anulado_manual       bit           NOT NULL CONSTRAINT DF_RecargoMora_AnuladoManual DEFAULT 0,    
     CONSTRAINT PK_Recargo_mora PRIMARY KEY (id_recargo),
     CONSTRAINT FK_RecargoMora_Factura FOREIGN KEY (id_factura) REFERENCES dbo.Factura (id_factura),
     CONSTRAINT CK_RecargoMora_PorcentajeValido CHECK (porcentaje_aplicado > 0 AND porcentaje_aplicado <= 100),
@@ -258,7 +246,7 @@ GO
 CREATE TABLE dbo.Metodo_Pago (
     id_metodo_pago  int IDENTITY(1,1) NOT NULL,
     nombre_metodo   varchar(50) NOT NULL,
-    activo          bit NOT NULL CONSTRAINT DF_MetodoPago_Activo DEFAULT (1),                       -- [AGREGADO]
+    activo          bit NOT NULL CONSTRAINT DF_MetodoPago_Activo DEFAULT (1),                       
     CONSTRAINT PK_Metodo_Pago PRIMARY KEY (id_metodo_pago)
 ) ON Facturacion;
 GO
@@ -268,9 +256,9 @@ CREATE TABLE dbo.Pago (
     id_factura        int           NOT NULL,
     id_metodo_pago    int           NOT NULL,
     fecha_pago        date          NOT NULL CONSTRAINT DF_Pago_Fecha DEFAULT (CAST(GETDATE() AS date)),
-    monto             decimal(10,2) NOT NULL,                                                       -- [AGREGADO]
-    estado            varchar(10)   NOT NULL CONSTRAINT DF_Pago_Estado DEFAULT ('Aplicado'),        -- [AGREGADO]
-    motivo_anulacion  varchar(250)  NULL,                                                           -- [AGREGADO]
+    monto             decimal(10,2) NOT NULL,                                                       
+    estado            varchar(10)   NOT NULL CONSTRAINT DF_Pago_Estado DEFAULT ('Aplicado'),        
+    motivo_anulacion  varchar(250)  NULL,                                                           
     CONSTRAINT PK_Pago PRIMARY KEY (id_pago),
     CONSTRAINT FK_Pago_Factura    FOREIGN KEY (id_factura)     REFERENCES dbo.Factura (id_factura),
     CONSTRAINT FK_Pago_MetodoPago FOREIGN KEY (id_metodo_pago) REFERENCES dbo.Metodo_Pago (id_metodo_pago),
@@ -279,13 +267,36 @@ CREATE TABLE dbo.Pago (
 ) ON Facturacion;
 GO
 
-/* ---------------------------------------------------------------------
-   Incidencias y mantenimientos
-   --------------------------------------------------------------------- */
+-- Tramos de mora: el porcentaje de recargo depende de los días de atraso
+-- Son configurables para que la ASADA pueda ajustarlos sin tocar código
+CREATE TABLE dbo.Tramo_Mora (
+    id_tramo    int IDENTITY(1,1) NOT NULL,
+    dias_desde  int           NOT NULL,
+    dias_hasta  int           NULL,          
+    porcentaje  decimal(5,2)  NOT NULL,
+    activo      bit           NOT NULL CONSTRAINT DF_TramoMora_Activo DEFAULT (1),
+    CONSTRAINT PK_Tramo_Mora PRIMARY KEY (id_tramo),
+    CONSTRAINT CK_TramoMora_Dias CHECK (dias_desde > 0 AND (dias_hasta IS NULL OR dias_hasta >= dias_desde)),
+    CONSTRAINT CK_TramoMora_Porcentaje CHECK (porcentaje > 0 AND porcentaje <= 100)
+) ON Facturacion;
+GO
+
+-- Parámetros de morosidad: límites para suspender una conexión y plazo de pago
+CREATE TABLE dbo.Parametro_Mora (
+    nombre              varchar(50)   NOT NULL,
+    valor               decimal(12,2) NOT NULL,
+    descripcion         varchar(200)  NULL,
+    fecha_modificacion  datetime      NOT NULL CONSTRAINT DF_ParametroMora_Fecha DEFAULT (GETDATE()),
+    CONSTRAINT PK_Parametro_Mora PRIMARY KEY (nombre),
+    CONSTRAINT CK_ParametroMora_Valor CHECK (valor >= 0)
+) ON Administracion;
+GO
+
+   --Incidencias y mantenimientos
 CREATE TABLE dbo.Tipo_Incidencia (
     id_tipo_incidencia  int IDENTITY(1,1) NOT NULL,
     nombre_incidencia   varchar(20) NOT NULL,
-    activo              bit NOT NULL CONSTRAINT DF_TipoIncidencia_Activo DEFAULT (1),               -- [AGREGADO]
+    activo              bit NOT NULL CONSTRAINT DF_TipoIncidencia_Activo DEFAULT (1),              
     CONSTRAINT PK_Tipo_Incidencia PRIMARY KEY (id_tipo_incidencia)
 ) ON Operaciones;
 GO
@@ -298,7 +309,7 @@ CREATE TABLE dbo.Incidencia (
     descripcion         varchar(100) NOT NULL,
     ubicacion           varchar(20)  NULL,
     estado              varchar(20)  NOT NULL CONSTRAINT DF_Incidencia_Estado DEFAULT ('Abierta'),
-    prioridad           varchar(10)  NULL,                                                          -- [AGREGADO]
+    prioridad           varchar(10)  NULL,
     fecha_modificacion  datetime     NULL,
     CONSTRAINT PK_Incidencia PRIMARY KEY (id_incidencia),
     CONSTRAINT FK_Incidencia_Medidor        FOREIGN KEY (id_medidor)         REFERENCES dbo.Medidor (id_medidor),
@@ -325,7 +336,7 @@ GO
 CREATE TABLE dbo.Tipo_Trabajo (
     id_tipo_trabajo  int IDENTITY(1,1) NOT NULL,
     nombre_trabajo   varchar(15) NOT NULL,
-    activo           bit NOT NULL CONSTRAINT DF_TipoTrabajo_Activo DEFAULT (1),                     -- [AGREGADO]
+    activo           bit NOT NULL CONSTRAINT DF_TipoTrabajo_Activo DEFAULT (1),                     
     CONSTRAINT PK_Tipo_Trabajo PRIMARY KEY (id_tipo_trabajo)
 ) ON Operaciones;
 GO
@@ -365,9 +376,7 @@ CREATE TABLE dbo.Historial_Mantenimiento (
 ) ON Auditoria;
 GO
 
-/* ---------------------------------------------------------------------
-   Detección de consumos anómalos (R9)
-   --------------------------------------------------------------------- */
+   --Detección de consumos anómalos (R9)
 CREATE TABLE dbo.Nivel_alerta_Consumo (
     id_nivel_alerta  int IDENTITY(1,1) NOT NULL,
     nombre_nivel     varchar(50) NOT NULL,
@@ -395,10 +404,9 @@ CREATE TABLE dbo.Alerta_Consumo (
     id_alerta             int IDENTITY(1,1) NOT NULL,
     id_regla_consumo      int           NOT NULL,
     id_lectura            int           NOT NULL,
-    id_incidencia         int           NULL,                                                       -- [AGREGADO] R9: vincular con incidencia
+    id_incidencia         int           NULL,                                                       
     consumo_promedio      decimal(10,2) NOT NULL,
     consumo_actual        decimal(10,2) NOT NULL,
-    -- decimal(7,2) en lugar de (5,2): una variación puede superar 999.99 % (p. ej. de 2 m³ a 50 m³).
     porcentaje_variacion  decimal(7,2)  NULL,
     estado                varchar(10)   NOT NULL CONSTRAINT DF_AlertaConsumo_Estado DEFAULT ('Abierta'),
     fecha_deteccion       date          NOT NULL CONSTRAINT DF_AlertaConsumo_Fecha DEFAULT (CAST(GETDATE() AS date)),
@@ -415,12 +423,9 @@ CREATE TABLE dbo.Alerta_Consumo (
 ) ON Operaciones;
 GO
 
-/* ---------------------------------------------------------------------
-   Respaldos y restauraciones (RA2 / R10)
-   --------------------------------------------------------------------- */
+   --Respaldos y restauraciones 
 CREATE TABLE dbo.Tipo_Respaldo (
     id_tipo_respaldo  int IDENTITY(1,1) NOT NULL,
-    -- varchar(15) en lugar de (10): "Diferencial" tiene 11 caracteres.
     nombre_respaldo   varchar(15) NOT NULL,
     CONSTRAINT PK_Tipo_Respaldo PRIMARY KEY (id_tipo_respaldo),
     CONSTRAINT CK_TipoRespaldo_Nombre CHECK (nombre_respaldo IN ('Completo', 'Diferencial', 'Log'))
@@ -476,9 +481,7 @@ CREATE TABLE dbo.Historial_Restauracion (
 ) ON Administracion;
 GO
 
-/* ---------------------------------------------------------------------
-   Control del proceso ETL hacia el Data Warehouse (R5)
-   --------------------------------------------------------------------- */
+   --Control del proceso ETL hacia el Data Warehouse 
 CREATE TABLE dbo.Control_ETL (
     id_proceso_etl        int IDENTITY(1,1) NOT NULL,
     nombre_tabla_destino  varchar(50)  NOT NULL,
@@ -487,7 +490,7 @@ CREATE TABLE dbo.Control_ETL (
     filas_procesadas      int          NOT NULL CONSTRAINT DF_ControlETL_Filas DEFAULT (0),
     estado                varchar(20)  NOT NULL,
     mensaje_error         varchar(500) NULL,
-    reintentado           bit          NOT NULL CONSTRAINT DF_ControlETL_Reintentado DEFAULT (0),   -- [AGREGADO]
+    reintentado           bit          NOT NULL CONSTRAINT DF_ControlETL_Reintentado DEFAULT (0),   
     CONSTRAINT PK_Control_ETL PRIMARY KEY (id_proceso_etl),
     CONSTRAINT CK_ControlETL_Estado CHECK (estado IN ('En proceso', 'Exitoso', 'Fallido'))
 ) ON Administracion;

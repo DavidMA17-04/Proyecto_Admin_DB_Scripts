@@ -1,24 +1,14 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 18: Mecanismos de testeo (R7)
-   - sp_CargarDatosPrueba : carga un conjunto controlado de datos de prueba.
-   - sp_LimpiarDatosPrueba: elimina esos datos y deja el entorno como estaba.
-   - sp_EjecutarPruebas   : ejecuta los casos de prueba. Cada caso corre dentro
-                            de una transacción que se revierte (ROLLBACK), así
-                            que no deja cambios en los datos.
-   Los datos de prueba se identifican por:
-     abonados  -> correo que termina en '@prueba.asada'
-     empleados -> cédula que empieza con '9000000'
-     medidores -> número de serie que empieza con 'PRB-'
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 18: Mecanismos de testeo 
+   --------------------------------------------------------------------- */
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   Carga de datos de prueba
-   --------------------------------------------------------------------- */
+   --Carga de datos de prueba
+
 CREATE OR ALTER PROCEDURE dbo.sp_CargarDatosPrueba
 AS
 BEGIN
@@ -183,9 +173,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Limpieza de datos de prueba
-   --------------------------------------------------------------------- */
+   --Limpieza de datos de prueba
 CREATE OR ALTER PROCEDURE dbo.sp_LimpiarDatosPrueba
 AS
 BEGIN
@@ -259,12 +247,8 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Casos de prueba
-   Cada caso: BEGIN TRAN -> acción -> verificación -> ROLLBACK.
-   Los resultados se guardan en una variable de tabla, que no se ve
-   afectada por el ROLLBACK.
-   --------------------------------------------------------------------- */
+   --Casos de prueba
+  
 CREATE OR ALTER PROCEDURE dbo.sp_EjecutarPruebas
 AS
 BEGIN
@@ -292,7 +276,7 @@ BEGIN
     SELECT TOP (1) @f_morosa = id_factura FROM dbo.vw_SaldoFactura WHERE id_conexion = @c2 AND saldo > 0 ORDER BY id_factura DESC;
     SELECT TOP (1) @f_vencida = id_factura FROM dbo.vw_SaldoFactura WHERE id_conexion = @c2 AND estado = 'Vencida' ORDER BY id_factura;
 
-    /* ===== Abonados ===== */
+    --Abonados 
     BEGIN TRY
         BEGIN TRAN;
         EXEC dbo.sp_Nuevo_Abonado @tipo_identificacion = 'FISICA', @numero_identidad = '12-34', @nombre = 'X', @apellido1 = 'Y', @direccion = 'Z';
@@ -352,7 +336,7 @@ BEGIN
         INSERT @r VALUES ('T05', 'Abonados', 'No desactiva un abonado con conexiones activas', IIF(ERROR_NUMBER() = 50109, 'PASÓ', 'FALLÓ'), ERROR_MESSAGE());
     END CATCH
 
-    /* ===== Conexiones y medidores ===== */
+    --Conexiones y medidores
     BEGIN TRY
         BEGIN TRAN;
         INSERT INTO dbo.Conexion (id_abonado_fisico, id_abonado_juridico, id_tarifa, ubicacion)
@@ -402,7 +386,7 @@ BEGIN
         INSERT @r VALUES ('T09', 'Conexiones', 'Un DELETE de medidor se convierte en baja lógica (Retirado)', 'FALLÓ', ERROR_MESSAGE());
     END CATCH
 
-    /* ===== Lecturas ===== */
+    --Lecturas
     BEGIN TRY
         BEGIN TRAN;
         SET @v = dbo.fn_ObtenerUltimaLectura(@m1);
@@ -495,7 +479,7 @@ BEGIN
         INSERT @r VALUES ('T15', 'Facturación', 'No genera dos facturas para la misma lectura', IIF(ERROR_NUMBER() = 50210, 'PASÓ', 'FALLÓ'), ERROR_MESSAGE());
     END CATCH
 
-    /* ===== Pagos y mora ===== */
+    --Pagos y mora
     BEGIN TRY
         BEGIN TRAN;
         SET @v = dbo.fn_CalcularSaldoPendiente(@f_morosa) + 1;
@@ -555,7 +539,7 @@ BEGIN
         INSERT @r VALUES ('T19', 'Mora', 'El recargo usa el porcentaje por días de atraso y hay un solo recargo vigente', 'FALLÓ', ERROR_MESSAGE());
     END CATCH
 
-    /* ===== Incidencias y mantenimientos ===== */
+    --Incidencias y mantenimientos
     BEGIN TRY
         BEGIN TRAN;
         EXEC dbo.sp_RegistrarIncidente @id_medidor = @m2, @id_tipo_incidencia = 1, @descripcion = 'Fuga en la tubería principal',
@@ -575,7 +559,7 @@ BEGIN
         INSERT @r VALUES ('T20', 'Mantenimientos', 'Cerrar el mantenimiento resuelve la incidencia y deja historial', 'FALLÓ', ERROR_MESSAGE());
     END CATCH
 
-    /* ===== Tarifas ===== */
+    --Tarifas
     BEGIN TRY
         BEGIN TRAN;
         SELECT @v = monto_por_m3 + 10 FROM dbo.Tarifa WHERE id_tarifa = @tarifa;
@@ -601,7 +585,7 @@ BEGIN
         INSERT @r VALUES ('T22', 'Tarifas', 'No desactiva una tarifa con conexiones activas', IIF(ERROR_NUMBER() = 50604, 'PASÓ', 'FALLÓ'), ERROR_MESSAGE());
     END CATCH
 
-    /* ===== Seguridad ===== */
+    --Seguridad
     BEGIN TRY
         BEGIN TRAN;
         EXEC dbo.sp_CrearUsuarioSistema @id_empleado = @fontanero, @id_rol = @rol_fontanero, @nombre_usuario = 'prueba.debil', @contrasena = N'12345678';
@@ -655,7 +639,7 @@ BEGIN
         INSERT @r VALUES ('T25', 'Bitácora', 'La bitácora registra quién modificó un abonado y qué cambió', 'FALLÓ', ERROR_MESSAGE());
     END CATCH
 
-    /* ===== Resultados ===== */
+    --Resultados
     SELECT caso, modulo, descripcion, resultado, detalle FROM @r ORDER BY caso;
 
     SELECT COUNT(*) AS total_casos,

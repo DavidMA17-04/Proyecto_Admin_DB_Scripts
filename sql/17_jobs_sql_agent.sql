@@ -1,13 +1,9 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 17: Tareas programadas (SQL Server Agent)
-   - Requiere SQL Server Agent en ejecución (no existe en la edición Express;
-     en Express se puede usar el Programador de tareas de Windows con sqlcmd).
-   - Si se cambia la frecuencia u hora de una política de respaldo, hay que
-     ajustar también el horario del job aquí.
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 17: Tareas programadas 
+   --------------------------------------------------------------------- */
 USE msdb;
 GO
 

@@ -1,22 +1,15 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 13: Data Warehouse (R5)
-   - Las tablas DIM_* y FACT_* se crean en la base ASADA_DW.
-   - Los procedimientos ETL viven en ASADA (junto a Control_ETL) y escriben
-     en ASADA_DW con nombres de tres partes.
-   - Cada hecho guarda el id de origen (columna id_*_origen) para que la
-     carga sea incremental y no duplique registros al reintentarse.
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 13: Data Warehouse 
+   --------------------------------------------------------------------- */
 USE ASADA_DW;
 GO
 
-/* ---------------------------------------------------------------------
-   Dimensiones
-   --------------------------------------------------------------------- */
+   --Dimensiones
 CREATE TABLE dbo.DIM_TIEMPO (
-    id_tiempo   int         NOT NULL,   -- clave inteligente AAAAMMDD
+    id_tiempo   int         NOT NULL,   
     fecha       date        NOT NULL,
     anio        int         NOT NULL,
     trimestre   int         NOT NULL,
@@ -81,9 +74,7 @@ CREATE TABLE dbo.DIM_EMPLEADO (
 ) ON DW_Dimensiones;
 GO
 
-/* ---------------------------------------------------------------------
-   Hechos
-   --------------------------------------------------------------------- */
+   --Hechos
 CREATE TABLE dbo.FACT_CONSUMO (
     id_consumo         int IDENTITY(1,1) NOT NULL,
     id_lectura_origen  int           NOT NULL,
@@ -177,9 +168,8 @@ CREATE TABLE dbo.FACT_MANTENIMIENTO (
 ) ON DW_Hechos;
 GO
 
-/* =====================================================================
-   Procedimientos ETL (en la base ASADA)
-   ===================================================================== */
+   --Procedimientos ETL (en la base ASADA)
+   
 USE ASADA;
 GO
 
@@ -202,9 +192,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Control de ejecución (Control_ETL)
-   --------------------------------------------------------------------- */
+   --Control de ejecución (Control_ETL)
 CREATE OR ALTER PROCEDURE dbo.sp_ETL_IniciarControl
     @nombre_tabla_destino varchar(50),
     @id_proceso_etl       int OUTPUT
@@ -253,9 +241,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Dimensiones
-   --------------------------------------------------------------------- */
+   --Dimensiones
 CREATE OR ALTER PROCEDURE dbo.sp_ETL_CargarDimTiempo
     @desde date,
     @hasta date
@@ -372,9 +358,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Hechos
-   --------------------------------------------------------------------- */
+   --Hechos
 -- Lecturas y consumos -> FACT_CONSUMO
 CREATE OR ALTER PROCEDURE dbo.sp_ETL_CargaLecturasDW
     @desde datetime = NULL
@@ -625,9 +609,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Validación, coordinación y conciliación
-   --------------------------------------------------------------------- */
+   --Validación, coordinación y conciliación
 -- Detecta registros del origen que no llegaron al DW e inconsistencias en los hechos.
 CREATE OR ALTER PROCEDURE dbo.sp_ValidarCargaDW
     @problemas int = NULL OUTPUT
@@ -748,9 +730,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.31 Control ETL
-   --------------------------------------------------------------------- */
+   --Control ETL
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarControlETL
     @nombre_tabla_destino varchar(50) = NULL,
     @estado               varchar(20) = NULL,

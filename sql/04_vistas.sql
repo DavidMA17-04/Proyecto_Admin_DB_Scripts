@@ -1,13 +1,13 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
+/* ---------------------------------------------------------------------
    Script 04: Vistas
-   ===================================================================== */
+   --------------------------------------------------------------------- */
 USE ASADA;
 GO
 
--- Vista de apoyo: abonados físicos y jurídicos en un mismo formato.
+-- Vista de apoyo: abonados físicos y jurídicos 
 CREATE OR ALTER VIEW dbo.vw_Abonados
 AS
 SELECT
@@ -29,7 +29,7 @@ SELECT
 FROM dbo.Abonado_Juridico j;
 GO
 
--- Saldo de cada factura (total + recargos aplicados - pagos aplicados).
+-- Saldo de cada factura (total + recargos aplicados - pagos aplicados)
 CREATE OR ALTER VIEW dbo.vw_SaldoFactura
 AS
 SELECT
@@ -52,7 +52,7 @@ OUTER APPLY (SELECT SUM(pg.monto) AS pagado FROM dbo.Pago pg
              WHERE pg.id_factura = f.id_factura AND pg.estado = 'Aplicado') p;
 GO
 
--- 12.5 Facturas pendientes de pago (pendientes o vencidas con saldo)
+--Facturas pendientes de pago (pendientes o vencidas con saldo)
 CREATE OR ALTER VIEW dbo.vw_FacturasPendientes
 AS
 SELECT
@@ -70,21 +70,25 @@ JOIN dbo.vw_Abonados a
 WHERE s.estado IN ('Pendiente', 'Vencida') AND s.saldo > 0;
 GO
 
--- 12.1 / 12.5 Abonados en estado de morosidad
+--Abonados en estado de morosidad
 CREATE OR ALTER VIEW dbo.vw_UsuariosMorosos
 AS
 SELECT
-    tipo_abonado, identificacion, nombre_completo, id_conexion,
-    COUNT(*)          AS cantidad_facturas_vencidas,
-    SUM(saldo)        AS saldo_vencido,
-    MIN(fecha_vencimiento) AS vencimiento_mas_antiguo,
-    MAX(dias_atraso)  AS dias_atraso_maximo
-FROM dbo.vw_FacturasPendientes
-WHERE fecha_vencimiento < CAST(GETDATE() AS date)
-GROUP BY tipo_abonado, identificacion, nombre_completo, id_conexion;
+    a.tipo_abonado, a.id_abonado, a.identificacion, a.nombre_completo, p.id_conexion,
+    COUNT(*)               AS cantidad_facturas_vencidas,
+    SUM(p.saldo)           AS saldo_vencido,
+    MIN(p.fecha_vencimiento) AS vencimiento_mas_antiguo,
+    MAX(p.dias_atraso)     AS dias_atraso_maximo
+FROM dbo.vw_FacturasPendientes p
+JOIN dbo.Conexion c ON c.id_conexion = p.id_conexion
+JOIN dbo.vw_Abonados a
+  ON (a.tipo_abonado = 'FISICO'   AND a.id_abonado = c.id_abonado_fisico)
+  OR (a.tipo_abonado = 'JURIDICO' AND a.id_abonado = c.id_abonado_juridico)
+WHERE p.fecha_vencimiento < CAST(GETDATE() AS date)
+GROUP BY a.tipo_abonado, a.id_abonado, a.identificacion, a.nombre_completo, p.id_conexion;
 GO
 
--- 12.3 Medidores activos sin lectura en el mes actual
+--Medidores activos sin lectura en el mes actual
 CREATE OR ALTER VIEW dbo.vw_MedidorNoLeido
 AS
 SELECT
@@ -102,7 +106,7 @@ WHERE m.estado = 'Activo'
   );
 GO
 
--- 12.4 / 12.10 Resumen de consumo mensual por conexión (fuente del ETL)
+--Resumen de consumo mensual por conexión
 CREATE OR ALTER VIEW dbo.vw_ResumenConsumoMensual
 AS
 SELECT
@@ -124,7 +128,7 @@ GROUP BY YEAR(l.fecha_lectura_actual) * 100 + MONTH(l.fecha_lectura_actual),
          c.id_conexion, c.id_abonado_fisico, c.id_abonado_juridico, c.id_tarifa, tt.nombre_tarifa;
 GO
 
--- 12.6 Total recaudado por método de pago
+--Total recaudado por método de pago
 CREATE OR ALTER VIEW dbo.vw_PagosPorMetodo
 AS
 SELECT
@@ -136,7 +140,7 @@ LEFT JOIN dbo.Pago p ON p.id_metodo_pago = mp.id_metodo_pago AND p.estado = 'Apl
 GROUP BY mp.id_metodo_pago, mp.nombre_metodo;
 GO
 
--- 12.7 Incidentes pendientes de atención
+--Incidentes pendientes de atención
 CREATE OR ALTER VIEW dbo.vw_IncidentesAbiertos
 AS
 SELECT
@@ -149,7 +153,7 @@ JOIN dbo.Medidor m          ON m.id_medidor = i.id_medidor
 WHERE i.estado IN ('Abierta', 'En proceso');
 GO
 
--- 12.9 Acciones registradas en los últimos 7 días
+--Acciones registradas en los últimos 7 días
 CREATE OR ALTER VIEW dbo.vw_BitacoraReciente
 AS
 SELECT
@@ -160,7 +164,7 @@ LEFT JOIN dbo.Usuario_Sistema u ON u.id_usuario_sistema = b.id_usuario_sistema
 WHERE b.fecha_registro >= DATEADD(DAY, -7, GETDATE());
 GO
 
--- 12.11 Alertas de consumo pendientes de revisión
+--Alertas de consumo pendientes de revisión
 CREATE OR ALTER VIEW dbo.vw_AlertasActivas
 AS
 SELECT
@@ -176,7 +180,7 @@ JOIN dbo.Medidor              m ON m.id_medidor = l.id_medidor
 WHERE a.estado = 'Abierta';
 GO
 
--- 12.13 Tarifas vigentes para facturación
+--Tarifas vigentes para facturación
 CREATE OR ALTER VIEW dbo.vw_TarifasActivas
 AS
 SELECT t.id_tarifa, tt.id_tipo_tarifa, tt.nombre_tarifa AS tipo_tarifa, t.monto_fijo, t.monto_por_m3
@@ -185,18 +189,63 @@ JOIN dbo.Tipo_Tarifa tt ON tt.id_tipo_tarifa = t.id_tipo_tarifa
 WHERE t.activo = 1 AND tt.activo = 1;
 GO
 
--- 12.15 Recargos aplicados cuya factura todavía no está pagada
+--Recargos aplicados cuya factura todavía no está pagada
 CREATE OR ALTER VIEW dbo.vw_RecargosPendientes
 AS
 SELECT
     r.id_recargo, r.id_factura, r.fecha_calculo, r.porcentaje_aplicado, r.monto_recargo,
-    s.saldo AS saldo_factura, s.fecha_vencimiento, s.id_conexion
+    s.saldo AS saldo_factura, s.fecha_vencimiento, s.id_conexion,
+    dbo.fn_ObtenerNombreCompleto(c.id_abonado_fisico, c.id_abonado_juridico) AS abonado,
+    CASE WHEN s.fecha_vencimiento < CAST(GETDATE() AS date)
+         THEN DATEDIFF(DAY, s.fecha_vencimiento, GETDATE()) ELSE 0 END AS dias_atraso
 FROM dbo.Recargo_mora r
 JOIN dbo.vw_SaldoFactura s ON s.id_factura = r.id_factura
+JOIN dbo.Conexion c        ON c.id_conexion = s.id_conexion
 WHERE r.estado = 'Aplicado' AND s.estado <> 'Pagada';
 GO
 
--- 12.19 Mantenimientos abiertos o en proceso
+-- Resumen de cartera para el tablero del módulo de pagos y morosidad
+CREATE OR ALTER VIEW dbo.vw_ResumenCartera
+AS
+SELECT
+    CAST(GETDATE() AS date) AS fecha_corte,
+    ISNULL((SELECT SUM(s.saldo) FROM dbo.vw_SaldoFactura s
+             WHERE s.saldo > 0 AND s.estado IN ('Pendiente', 'Vencida')), 0) AS total_por_cobrar,
+    ISNULL((SELECT SUM(s.saldo) FROM dbo.vw_SaldoFactura s
+             WHERE s.saldo > 0 AND s.estado IN ('Pendiente', 'Vencida')
+               AND s.fecha_vencimiento < CAST(GETDATE() AS date)), 0) AS total_vencido,
+    (SELECT COUNT(*) FROM dbo.vw_SaldoFactura s
+      WHERE s.saldo > 0 AND s.estado IN ('Pendiente', 'Vencida')) AS facturas_pendientes,
+    (SELECT COUNT(*) FROM dbo.vw_SaldoFactura s
+      WHERE s.saldo > 0 AND s.estado IN ('Pendiente', 'Vencida')
+        AND s.fecha_vencimiento < CAST(GETDATE() AS date)) AS facturas_vencidas,
+    (SELECT COUNT(DISTINCT s.id_conexion) FROM dbo.vw_SaldoFactura s
+      WHERE s.saldo > 0 AND s.estado IN ('Pendiente', 'Vencida')
+        AND s.fecha_vencimiento < CAST(GETDATE() AS date)) AS conexiones_morosas,
+    (SELECT COUNT(*) FROM dbo.Conexion c WHERE c.estado = 'Suspendida') AS conexiones_suspendidas,
+    ISNULL((SELECT SUM(r.monto_recargo) FROM dbo.Recargo_mora r WHERE r.estado = 'Aplicado'), 0) AS recargos_vigentes,
+    ISNULL((SELECT SUM(p.monto) FROM dbo.Pago p
+             WHERE p.estado = 'Aplicado'
+               AND p.fecha_pago >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)), 0) AS recaudado_mes,
+    (SELECT COUNT(*) FROM dbo.Pago p
+      WHERE p.estado = 'Aplicado'
+        AND p.fecha_pago >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)) AS pagos_mes;
+GO
+
+--Configuración de morosidad expuesta para consulta desde la aplicación
+CREATE OR ALTER VIEW dbo.vw_ParametrosMora
+AS
+SELECT nombre, valor, descripcion, fecha_modificacion
+FROM dbo.Parametro_Mora;
+GO
+
+CREATE OR ALTER VIEW dbo.vw_TramosMora
+AS
+SELECT id_tramo, dias_desde, dias_hasta, porcentaje, activo
+FROM dbo.Tramo_Mora;
+GO
+
+--Mantenimientos abiertos o en proceso
 CREATE OR ALTER VIEW dbo.vw_MantenimientosPendientes
 AS
 SELECT
@@ -210,13 +259,13 @@ JOIN dbo.Conexion     c  ON c.id_conexion = mt.id_conexion
 WHERE mt.estado IN ('Programado', 'En proceso');
 GO
 
--- 12.21 Métodos de pago habilitados
+-- Métodos de pago habilitados
 CREATE OR ALTER VIEW dbo.vw_MetodosPagoActivos
 AS
 SELECT id_metodo_pago, nombre_metodo FROM dbo.Metodo_Pago WHERE activo = 1;
 GO
 
--- 12.24 Usuarios habilitados para iniciar sesión
+--Usuarios habilitados para iniciar sesión
 CREATE OR ALTER VIEW dbo.vw_UsuariosActivos
 AS
 SELECT
@@ -229,7 +278,7 @@ JOIN dbo.Empleado e ON e.id_empleado = u.id_empleado
 WHERE u.activo = 1 AND e.activo = 1;
 GO
 
--- 12.24 Cuentas bloqueadas por exceso de intentos fallidos (máximo: 3)
+--Cuentas bloqueadas por exceso de intentos fallidos
 CREATE OR ALTER VIEW dbo.vw_UsuariosBloqueadosPorIntentos
 AS
 SELECT u.id_usuario_sistema, u.nombre_usuario, r.nombre_rol, u.intentos_fallidos, u.fecha_ultimo_acceso
@@ -238,7 +287,7 @@ JOIN dbo.Rol r ON r.id_rol = u.id_rol
 WHERE u.activo = 0 AND u.intentos_fallidos >= 3;
 GO
 
--- 12.31 Carga más reciente de cada tabla del Data Warehouse
+--Carga más reciente de cada tabla del Data Warehouse
 CREATE OR ALTER VIEW dbo.vw_UltimaCargaPorTabla
 AS
 SELECT nombre_tabla_destino, fecha_proceso, fecha_ultima_carga, filas_procesadas, estado, mensaje_error
@@ -249,7 +298,7 @@ FROM (
 WHERE rn = 1;
 GO
 
--- 12.31 Cargas fallidas que aún no se han reintentado
+--Cargas fallidas que aún no se han reintentado
 CREATE OR ALTER VIEW dbo.vw_CargasFallidas
 AS
 SELECT id_proceso_etl, nombre_tabla_destino, fecha_proceso, mensaje_error

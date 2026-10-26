@@ -1,15 +1,13 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 15: Administración de la BD (RA4) y roles de base de datos (RA1, RA3)
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 15: Administración de la BD (RA4) y roles de base de datos 
+   --------------------------------------------------------------------- */
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.32 Mantenimiento y monitoreo
-   --------------------------------------------------------------------- */
+   --Mantenimiento y monitoreo
 -- Reorganiza (5 % a 30 %) o reconstruye (más de 30 %) los índices fragmentados
 -- y actualiza estadísticas. Con @solo_reporte = 1 solo muestra la fragmentación.
 CREATE OR ALTER PROCEDURE dbo.sp_MantenimientoIndices
@@ -96,7 +94,7 @@ BEGIN
 END;
 GO
 
--- RA4: espacio, consultas más costosas y estado de los respaldos y del ETL.
+-- espacio, consultas más costosas y estado de los respaldos y del ETL.
 CREATE OR ALTER PROCEDURE dbo.sp_MonitorearBD
 AS
 BEGIN
@@ -154,11 +152,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Roles de base de datos (permisos del motor)
-   La aplicación ejecuta procedimientos; ningún rol operativo recibe permisos
-   directos sobre las tablas (el encadenamiento de propiedad de dbo da el acceso).
-   --------------------------------------------------------------------- */
+   --Roles de base de datos (permisos del motor)
 IF DATABASE_PRINCIPAL_ID('Rol_Operador')         IS NULL CREATE ROLE Rol_Operador;          -- Administrador del Sistema
 IF DATABASE_PRINCIPAL_ID('Rol_Fontanero')        IS NULL CREATE ROLE Rol_Fontanero;         -- Personal de campo
 IF DATABASE_PRINCIPAL_ID('Rol_JuntaDirectiva')   IS NULL CREATE ROLE Rol_JuntaDirectiva;    -- Consulta de reportes
@@ -184,7 +178,7 @@ DENY EXECUTE ON dbo.sp_MantenimientoIndices           TO Rol_Operador;
 DENY EXECUTE ON dbo.sp_VerificarIntegridadBD          TO Rol_Operador;
 DENY EXECUTE ON dbo.sp_EjecutarCargaDW                TO Rol_Operador;
 DENY EXECUTE ON dbo.sp_ReintentarCargaETL             TO Rol_Operador;
--- Los DENY de sp_CargarDatosPrueba y sp_LimpiarDatosPrueba están en el script 18.
+-- Los DENY de sp_CargarDatosPrueba y sp_LimpiarDatosPrueba .
 GO
 
 -- Rol_Fontanero: lecturas, incidencias y sus mantenimientos asignados.
@@ -242,9 +236,8 @@ GRANT SELECT  ON dbo.Historial_Respaldo                TO Rol_OperadorRespaldo;
 GRANT SELECT  ON dbo.Politica_Respaldo                 TO Rol_OperadorRespaldo;
 GO
 
-/* ---------------------------------------------------------------------
-   Data Warehouse: lectura para la Junta Directiva
-   --------------------------------------------------------------------- */
+
+   --Data Warehouse: lectura para la Junta Directiva
 USE ASADA_DW;
 GO
 IF DATABASE_PRINCIPAL_ID('Rol_LecturaDW') IS NULL CREATE ROLE Rol_LecturaDW;

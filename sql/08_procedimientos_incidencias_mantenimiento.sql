@@ -1,16 +1,14 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 08: Procedimientos - Incidencias, mantenimientos y empleados (R4)
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 08: Procedimientos - Incidencias, mantenimientos y empleados 
+  --------------------------------------------------------------------*/
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.7 Incidencia
-   --------------------------------------------------------------------- */
--- Registra una incidencia. Si viene de una alerta de consumo (R9), la vincula.
+   --Incidencia
+-- Registra una incidencia. Si viene de una alerta de consumo, la vincula.
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarIncidente
     @id_medidor          int,
     @id_tipo_incidencia  int,
@@ -161,7 +159,7 @@ BEGIN
 END;
 GO
 
--- R4-01: búsqueda de incidencias por estado, tipo, conexión o rango de fechas.
+--búsqueda de incidencias por estado, tipo, conexión o rango de fechas.
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarIncidencias
     @estado              varchar(20) = NULL,
     @id_tipo_incidencia  int         = NULL,
@@ -188,9 +186,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.30 Historial de incidencia
-   --------------------------------------------------------------------- */
+   --Historial de incidencia
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarHistorialIncidencia
     @id_incidencia int
 AS
@@ -206,9 +202,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.19 Mantenimiento
-   --------------------------------------------------------------------- */
+   --Mantenimiento
 -- Crea un mantenimiento a partir de una incidencia o de forma directa (preventivo).
 CREATE OR ALTER PROCEDURE dbo.sp_ProgramarMantenimiento
     @id_empleado       int,
@@ -377,9 +371,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.20 Historial de mantenimiento
-   --------------------------------------------------------------------- */
+   --Historial de mantenimiento
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarHistorialMantenimiento
     @id_mantenimiento int
 AS
@@ -395,9 +387,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.8 Empleado
-   --------------------------------------------------------------------- */
+   --Empleado
 CREATE OR ALTER PROCEDURE dbo.sp_AgregarEmpleado
     @cedula              varchar(20),
     @nombre_empleado     varchar(20),
