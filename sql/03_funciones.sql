@@ -1,18 +1,13 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
+/* ---------------------------------------------------------------------
    Script 03: Funciones
-   ===================================================================== */
+   --------------------------------------------------------------------- */
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   Funciones de apoyo para la sesión de la aplicación.
-   La aplicación, al iniciar sesión, ejecuta sp_IniciarSesion, que guarda
-   en SESSION_CONTEXT el usuario y el empleado. Los triggers de auditoría
-   leen esos valores para saber quién hizo cada cambio.
-   --------------------------------------------------------------------- */
+   --Funciones de apoyo para la sesión de la aplicación
 CREATE OR ALTER FUNCTION dbo.fn_UsuarioActual()
 RETURNS int
 AS
@@ -29,15 +24,6 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.1 Abonado
-   --------------------------------------------------------------------- */
--- Valida el formato de la identificación según las reglas de Costa Rica:
---   FISICA    : 9 dígitos, sin guiones, no inicia con 0   (ej. 504360690)
---   JURIDICA  : 10 dígitos que inician con 3              (ej. 3101123456)
---   DIMEX     : 11 o 12 dígitos
---   NITE      : 10 dígitos
---   PASAPORTE : 6 a 20 caracteres alfanuméricos
 CREATE OR ALTER FUNCTION dbo.fn_ValidarIdentificacion
 (
     @tipo_identificacion varchar(20),
@@ -69,7 +55,7 @@ BEGIN
 END;
 GO
 
--- Nombre completo del abonado físico o razón social del jurídico.
+-- Nombre completo del abonado físico o razón social del jurídico
 CREATE OR ALTER FUNCTION dbo.fn_ObtenerNombreCompleto
 (
     @id_abonado_fisico   int,
@@ -93,12 +79,6 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.2 Conexión / 12.13 Tarifa
-   --------------------------------------------------------------------- */
--- Devuelve la tarifa de la conexión con los montos vigentes en @fecha.
--- Si los montos cambiaron después de @fecha, toma los valores anteriores
--- registrados en Historial_Tarifa.
 CREATE OR ALTER FUNCTION dbo.fn_ObtenerTarifaVigente
 (
     @id_conexion int,
@@ -126,7 +106,7 @@ RETURN
 );
 GO
 
--- Usada por CK_Tarifa_TipoValido: el tipo de tarifa debe existir y estar activo.
+-- Usada por CK_Tarifa_TipoValido: el tipo de tarifa debe existir y estar activo
 CREATE OR ALTER FUNCTION dbo.fn_TipoTarifaActivo (@id_tipo_tarifa int)
 RETURNS bit
 AS
@@ -141,10 +121,7 @@ ALTER TABLE dbo.Tarifa WITH CHECK
     ADD CONSTRAINT CK_Tarifa_TipoValido CHECK (dbo.fn_TipoTarifaActivo(id_tipo_tarifa) = 1);
 GO
 
-/* ---------------------------------------------------------------------
-   12.3 Medidor / 12.4 Lectura
-   --------------------------------------------------------------------- */
--- Última lectura registrada del medidor (0 si es un medidor nuevo).
+-- Última lectura registrada del medidor
 CREATE OR ALTER FUNCTION dbo.fn_ObtenerUltimaLectura (@id_medidor int)
 RETURNS decimal(10,2)
 AS
@@ -155,7 +132,7 @@ BEGIN
     FROM dbo.Medidor
     WHERE id_medidor = @id_medidor;
 
-    -- Si el campo desnormalizado está vacío, se consulta la tabla de lecturas.
+    -- Si el campo desnormalizado está vacío, se consulta la tabla de lecturas
     IF @ultima IS NULL
         SELECT TOP (1) @ultima = lectura_actual
         FROM dbo.Lectura
@@ -179,11 +156,6 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.11 Alerta de consumo (R9)
-   --------------------------------------------------------------------- */
--- Promedio de las últimas @meses lecturas del medidor anteriores a @antes_de.
--- Devuelve NULL si el medidor no tiene historial suficiente.
 CREATE OR ALTER FUNCTION dbo.fn_CalcularPromedioConsumo
 (
     @id_medidor int,
@@ -227,9 +199,9 @@ BEGIN
 END;
 GO
 
--- 1 si el consumo actual supera el umbral de la regla.
--- Sin historial (promedio NULL) no se puede comparar y no se alerta.
--- Con promedio 0 (p. ej. casa deshabitada) es anómalo si supera el consumo mínimo de la regla.
+-- 1 si el consumo actual supera el umbral de la regla
+-- Sin historial (promedio NULL) no se puede comparar y no se alerta
+-- Con promedio 0 (p. ej. casa deshabitada) es anómalo si supera el consumo mínimo de la regla
 CREATE OR ALTER FUNCTION dbo.fn_EsConsumoAnomalo
 (
     @consumo_promedio     decimal(10,2),
@@ -251,10 +223,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.5 Factura / 12.15 Recargo por mora
-   --------------------------------------------------------------------- */
--- Monto total a facturar: monto fijo + consumo × monto por m³.
+-- Monto total a facturar: monto fijo + consumo × monto por m³
 CREATE OR ALTER FUNCTION dbo.fn_CalcularMontoFactura
 (
     @consumo_m3   decimal(10,2),
@@ -268,7 +237,7 @@ BEGIN
 END;
 GO
 
--- Saldo = total de la factura + recargos aplicados - pagos aplicados.
+-- Saldo = total de la factura + recargos aplicados - pagos aplicados
 CREATE OR ALTER FUNCTION dbo.fn_CalcularSaldoPendiente (@id_factura int)
 RETURNS decimal(10,2)
 AS
@@ -289,25 +258,28 @@ BEGIN
 END;
 GO
 
--- Porcentaje de recargo según días de atraso. Valores de referencia que la
--- Junta Directiva puede ajustar: 1-30 días 2 %, 31-60 días 4 %, más de 60 días 6 %.
+-- Porcentaje de recargo según días de atraso. Los tramos se configuran en la
+-- tabla Tramo_Mora (por defecto: 1-30 días 2 %, 31-60 días 4 %, más de 60 días 6 %).
 CREATE OR ALTER FUNCTION dbo.fn_CalcularPorcentajeMora (@dias_atraso int)
 RETURNS decimal(5,2)
 AS
 BEGIN
-    RETURN CASE
-        WHEN @dias_atraso <= 0  THEN 0
-        WHEN @dias_atraso <= 30 THEN 2.00
-        WHEN @dias_atraso <= 60 THEN 4.00
-        ELSE 6.00
-    END;
+    DECLARE @porcentaje decimal(5,2);
+
+    IF @dias_atraso <= 0 RETURN 0;
+
+    SELECT TOP (1) @porcentaje = t.porcentaje
+    FROM dbo.Tramo_Mora t
+    WHERE t.activo = 1
+      AND t.dias_desde <= @dias_atraso
+      AND (t.dias_hasta IS NULL OR t.dias_hasta >= @dias_atraso)
+    ORDER BY t.dias_desde DESC;
+
+    RETURN ISNULL(@porcentaje, 0);
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.7 Incidencia / 12.19 Mantenimiento
-   --------------------------------------------------------------------- */
--- Horas entre el reporte y la resolución. NULL si la incidencia sigue abierta.
+-- Horas entre el reporte y la resolución. NULL si la incidencia sigue abierta
 CREATE OR ALTER FUNCTION dbo.fn_CalcularTiempoResolucion (@id_incidencia int)
 RETURNS int
 AS
@@ -325,7 +297,7 @@ BEGIN
 END;
 GO
 
--- Prioridad de la incidencia según palabras clave de la descripción y el tipo.
+-- Prioridad de la incidencia según palabras clave de la descripción y el tipo
 CREATE OR ALTER FUNCTION dbo.fn_ClasificarIncidencia
 (
     @descripcion        varchar(100),
@@ -348,7 +320,7 @@ BEGIN
 END;
 GO
 
--- Horas entre el inicio y el cierre del mantenimiento. NULL si no ha finalizado.
+--Horas entre el inicio y el cierre del mantenimiento. NULL si no ha finalizado
 CREATE OR ALTER FUNCTION dbo.fn_CalcularDuracionMantenimiento (@id_mantenimiento int)
 RETURNS int
 AS
@@ -363,10 +335,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.10 Data Warehouse
-   --------------------------------------------------------------------- */
--- Periodo (AAAAMM) al que corresponde una fecha. Ej.: 2026-11-05 -> 202611
+-- Periodo (AAAAMM) al que corresponde una fecha
 CREATE OR ALTER FUNCTION dbo.fn_ObtenerPeriodoFiscal (@fecha datetime)
 RETURNS int
 AS
@@ -375,9 +344,6 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.12 Respaldos
-   --------------------------------------------------------------------- */
 CREATE OR ALTER FUNCTION dbo.fn_CalcularDuracionRespaldo (@id_respaldo int)
 RETURNS int
 AS
@@ -392,7 +358,7 @@ BEGIN
 END;
 GO
 
--- Fecha hasta la cual debe conservarse el respaldo. No elimina archivos.
+-- Fecha hasta la cual debe conservarse el respaldo. No elimina archivos
 CREATE OR ALTER FUNCTION dbo.fn_CalcularFechaRetencionRespaldo (@id_respaldo int)
 RETURNS datetime
 AS
@@ -408,17 +374,14 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.24 Usuario del sistema
-   --------------------------------------------------------------------- */
--- Mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo.
+-- Mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo
 CREATE OR ALTER FUNCTION dbo.fn_ValidarComplejidadContrasena (@contrasena nvarchar(128))
 RETURNS bit
 AS
 BEGIN
     IF @contrasena IS NULL OR LEN(@contrasena) < 8 RETURN 0;
 
-    -- Collation binaria para distinguir mayúsculas de minúsculas.
+    -- Collation binaria para distinguir mayúsculas de minúsculas
     IF PATINDEX(N'%[A-Z]%',        @contrasena COLLATE Latin1_General_BIN) = 0 RETURN 0;
     IF PATINDEX(N'%[a-z]%',        @contrasena COLLATE Latin1_General_BIN) = 0 RETURN 0;
     IF PATINDEX(N'%[0-9]%',        @contrasena) = 0 RETURN 0;
@@ -429,7 +392,7 @@ END;
 GO
 
 -- Hash SHA2-256 de la contraseña. Se usa el nombre de usuario como "sal"
--- para que dos usuarios con la misma contraseña no tengan el mismo hash.
+-- para que dos usuarios con la misma contraseña no tengan el mismo hash
 CREATE OR ALTER FUNCTION dbo.fn_HashContrasena
 (
     @nombre_usuario varchar(50),

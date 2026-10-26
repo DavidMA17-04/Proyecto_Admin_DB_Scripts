@@ -1,77 +1,19 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Proyecto: Sistema de Gestión para una ASADA
-   Curso:    Administración de Bases de Datos - UNA, Campus Nicoya
-   Motor:    Microsoft SQL Server 2019 o superior
+/* ---------------------------------------------------------------------
    Script 00: Creación de la base transaccional y del Data Warehouse
-   ---------------------------------------------------------------------
-   Orden de ejecución de los scripts:
-     00_crear_bases.sql
-     01_tablas.sql
-     02_indices.sql
-     03_funciones.sql
-     04_vistas.sql
-     05_procedimientos_abonados_conexiones.sql
-     06_procedimientos_lecturas_facturacion.sql
-     07_procedimientos_pagos_mora.sql
-     08_procedimientos_incidencias_mantenimiento.sql
-     09_procedimientos_seguridad_bitacora.sql
-     10_procedimientos_catalogos.sql
-     11_procedimientos_consumo_anomalo.sql
-     12_procedimientos_respaldos.sql
-     13_data_warehouse.sql
-     14_triggers.sql
-     15_administracion_y_roles_bd.sql
-     16_datos_iniciales.sql
-     17_jobs_sql_agent.sql        (requiere SQL Server Agent; no aplica en Express)
-     18_pruebas.sql
-   O bien abrir ejecutar_todo.sql en modo SQLCMD.
-   ---------------------------------------------------------------------
-   Distribución física de la base ASADA
-     Archivo de datos principal (PRIMARY) y de log con tamaño inicial,
-     tamaño máximo y crecimiento fijos. Las tablas se reparten en
-     filegroups según el módulo al que pertenecen:
+   --------------------------------------------------------------------*/
 
-     Filegroup        Archivo                  Tablas
-     ---------------  -----------------------  ------------------------------
-     Abonados (DEF.)  Abonados_Data.ndf        Abonado_Fisico, Abonado_Juridico,
-                                               Conexion, Medidor
-     Facturacion      Facturacion_Data.ndf     Tipo_Tarifa, Tarifa, Lectura,
-                                               Factura, Recargo_mora,
-                                               Metodo_Pago, Pago
-     Operaciones      Operaciones_Data.ndf     Tipo_Incidencia, Incidencia,
-                                               Tipo_Trabajo, Mantenimiento,
-                                               Nivel_alerta_Consumo,
-                                               Regla_consumo, Alerta_Consumo
-     Seguridad        Seguridad_Data.ndf       Empleado, Rol, Modulo, Permiso,
-                                               Rol_permiso, Usuario_Sistema
-     Auditoria        Auditoria_Data.ndf       Bitacora, Historial_Tarifa,
-                                               Historial_Incidencia,
-                                               Historial_Mantenimiento
-     Administracion   Administracion_Data.ndf  Tipo_Respaldo, Politica_Respaldo,
-                                               Historial_Respaldo,
-                                               Historial_Restauracion,
-                                               Control_ETL
-
-   Criterio de tamaños: Facturacion y Auditoria son los que más crecen
-   (una lectura y una factura por conexión cada mes, y una fila de
-   bitácora por cada cambio), por eso tienen más espacio inicial y máximo.
-   Seguridad y Administracion son casi catálogos y crecen poco.
-   ===================================================================== */
 USE master;
 GO
 
--- Carpetas de los archivos de datos y de log (las crea la cuenta del
--- servicio de SQL Server, así queda con permiso de escritura).
+-- Carpetas de los archivos de datos y de log 
 EXECUTE master.dbo.xp_create_subdir 'c:\sqldata';
 EXECUTE master.dbo.xp_create_subdir 'c:\sqllog';
 GO
 
-/* ---------------------------------------------------------------------
-   Base transaccional ASADA
-   --------------------------------------------------------------------- */
+   --Base transaccional ASADA
 IF DB_ID('ASADA') IS NULL
 BEGIN
     CREATE DATABASE ASADA
@@ -98,7 +40,7 @@ EXECUTE sp_helpdb ASADA;
 GO
 
 -- El modelo de recuperación FULL es obligatorio para respaldar el log de
--- transacciones y poder restaurar a un punto en el tiempo (R10).
+-- transacciones y poder restaurar a un punto en el tiempo 
 ALTER DATABASE ASADA SET RECOVERY FULL;
 GO
 

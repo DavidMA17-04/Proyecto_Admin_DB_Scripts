@@ -1,11 +1,6 @@
-﻿/* =====================================================================
+﻿/* ---------------------------------------------------------------------
    Ejecuta todos los scripts en orden.
-   - En SSMS: menú Consulta > Modo SQLCMD, y luego Ejecutar (F5).
-   - Desde la consola, en esta carpeta:
-       sqlcmd -S localhost -E -f 65001 -i ejecutar_todo.sql
-   El script 17 (jobs) se omite si el servidor no tiene SQL Server Agent
-   (edición Express); en ese caso ejecútelo aparte cuando haya Agent.
-   ===================================================================== */
+   --------------------------------------------------------------------- */
 :on error exit
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;

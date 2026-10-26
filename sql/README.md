@@ -69,6 +69,9 @@ Algunos objetos de la sección 12 necesitan columnas que el diccionario no tiene
 | Abonado_Fisico, Abonado_Juridico | `activo` | Eliminación lógica (R1-01) |
 | Medidor | `ultima_lectura`, `fecha_ultima_lectura` | Las mantiene `trg_ActualizarUltimaLectura` |
 | Recargo_mora | `monto_recargo`, `estado`, `motivo_anulacion` | `sp_AnularRecargoMora` y el cálculo del saldo |
+| Recargo_mora | `anulado_manual` | Evita que el proceso automático vuelva a aplicar un recargo anulado a mano |
+| Tramo_Mora | Tabla nueva | Porcentajes de recargo configurables por rango de días de atraso |
+| Parametro_Mora | Tabla nueva | Días y saldo mínimo para suspender por morosidad, y plazo de pago |
 | Incidencia | `prioridad` | Resultado de `fn_ClasificarIncidencia` |
 | Alerta_Consumo | `id_incidencia` | R9: vincular la alerta con una incidencia |
 | Alerta_Consumo | `porcentaje_variacion` pasa de decimal(5,2) a decimal(7,2) | Una variación puede superar 999.99 % |
@@ -83,8 +86,9 @@ Algunos objetos de la sección 12 necesitan columnas que el diccionario no tiene
 
 Estos valores no están definidos en el documento. Se pueden ajustar:
 
-- **Recargo por mora** (`fn_CalcularPorcentajeMora`): 2 % de 1 a 30 días, 4 % de 31 a 60 y 6 % después. Cada factura tiene un solo recargo vigente, que se recalcula sobre el saldo sin recargos.
+- **Recargo por mora** (`fn_CalcularPorcentajeMora`): los porcentajes se configuran en `Tramo_Mora`. Por defecto: 2 % de 1 a 30 días, 4 % de 31 a 60 y 6 % después. Cada factura tiene un solo recargo vigente, que se recalcula sobre el saldo sin recargos. Un recargo anulado a mano no se vuelve a aplicar.
 - **Plazo de pago**: 15 días desde la emisión (`sp_GenerarFactura @dias_plazo`).
+- **Suspensión por morosidad**: por defecto 90 días de atraso y saldo vencido mayor que cero (`Parametro_Mora`). `sp_SuspenderConexionesMorosas` y `sp_ReactivarConexionesSinMora` permiten simular antes de cambiar estados.
 - **Bloqueo de cuenta**: 3 intentos fallidos.
 - **Contraseña**: mínimo 8 caracteres, con mayúscula, minúscula, número y símbolo.
 - **Consumo anómalo**: tres reglas iniciales (50 %, 100 % y 200 % sobre el promedio de 3 meses). Un medidor sin historial no genera alerta.
