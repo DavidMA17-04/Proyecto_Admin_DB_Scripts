@@ -22,6 +22,7 @@ GO
 :r 13_data_warehouse.sql
 :r 14_triggers.sql
 :r 15_administracion_y_roles_bd.sql
+:r 15_acceso_dw.sql
 :r 16_datos_iniciales.sql
 :r 18_pruebas.sql
 

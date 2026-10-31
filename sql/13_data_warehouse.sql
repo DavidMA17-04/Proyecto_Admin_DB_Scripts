@@ -8,6 +8,7 @@ USE ASADA_DW;
 GO
 
    --Dimensiones
+IF OBJECT_ID('dbo.DIM_TIEMPO', 'U') IS NULL
 CREATE TABLE dbo.DIM_TIEMPO (
     id_tiempo   int         NOT NULL,   
     fecha       date        NOT NULL,
@@ -20,6 +21,7 @@ CREATE TABLE dbo.DIM_TIEMPO (
 ) ON DW_Dimensiones;
 GO
 
+IF OBJECT_ID('dbo.DIM_ABONADO', 'U') IS NULL
 CREATE TABLE dbo.DIM_ABONADO (
     id_abonado_dw        int IDENTITY(1,1) NOT NULL,
     id_abonado_origen    int          NOT NULL,
@@ -32,6 +34,7 @@ CREATE TABLE dbo.DIM_ABONADO (
 ) ON DW_Dimensiones;
 GO
 
+IF OBJECT_ID('dbo.DIM_CONEXION', 'U') IS NULL
 CREATE TABLE dbo.DIM_CONEXION (
     id_conexion_dw      int IDENTITY(1,1) NOT NULL,
     id_conexion_origen  int         NOT NULL,
@@ -43,6 +46,7 @@ CREATE TABLE dbo.DIM_CONEXION (
 ) ON DW_Dimensiones;
 GO
 
+IF OBJECT_ID('dbo.DIM_TARIFA', 'U') IS NULL
 CREATE TABLE dbo.DIM_TARIFA (
     id_tarifa_dw      int IDENTITY(1,1) NOT NULL,
     id_tarifa_origen  int           NOT NULL,
@@ -55,6 +59,7 @@ CREATE TABLE dbo.DIM_TARIFA (
 ) ON DW_Dimensiones;
 GO
 
+IF OBJECT_ID('dbo.DIM_TIPO_TRABAJO', 'U') IS NULL
 CREATE TABLE dbo.DIM_TIPO_TRABAJO (
     id_tipo_trabajo_dw      int IDENTITY(1,1) NOT NULL,
     id_tipo_trabajo_origen  int         NOT NULL,
@@ -64,6 +69,7 @@ CREATE TABLE dbo.DIM_TIPO_TRABAJO (
 ) ON DW_Dimensiones;
 GO
 
+IF OBJECT_ID('dbo.DIM_EMPLEADO', 'U') IS NULL
 CREATE TABLE dbo.DIM_EMPLEADO (
     id_empleado_dw      int IDENTITY(1,1) NOT NULL,
     id_empleado_origen  int         NOT NULL,
@@ -74,7 +80,18 @@ CREATE TABLE dbo.DIM_EMPLEADO (
 ) ON DW_Dimensiones;
 GO
 
+IF OBJECT_ID('dbo.DIM_TIPO_INCIDENCIA', 'U') IS NULL
+CREATE TABLE dbo.DIM_TIPO_INCIDENCIA (
+    id_tipo_incidencia_dw      int IDENTITY(1,1) NOT NULL,
+    id_tipo_incidencia_origen  int         NOT NULL,
+    nombre_incidencia          varchar(20) NOT NULL,
+    CONSTRAINT PK_DIM_TIPO_INCIDENCIA PRIMARY KEY (id_tipo_incidencia_dw),
+    CONSTRAINT UQ_DIM_TIPO_INCIDENCIA_Origen UNIQUE (id_tipo_incidencia_origen)
+) ON DW_Dimensiones;
+GO
+
    --Hechos
+IF OBJECT_ID('dbo.FACT_CONSUMO', 'U') IS NULL
 CREATE TABLE dbo.FACT_CONSUMO (
     id_consumo         int IDENTITY(1,1) NOT NULL,
     id_lectura_origen  int           NOT NULL,
@@ -95,6 +112,7 @@ CREATE TABLE dbo.FACT_CONSUMO (
 ) ON DW_Hechos;
 GO
 
+IF OBJECT_ID('dbo.FACT_FACTURACION', 'U') IS NULL
 CREATE TABLE dbo.FACT_FACTURACION (
     id_facturacion     int IDENTITY(1,1) NOT NULL,
     id_factura_origen  int           NOT NULL,
@@ -116,6 +134,7 @@ CREATE TABLE dbo.FACT_FACTURACION (
 ) ON DW_Hechos;
 GO
 
+IF OBJECT_ID('dbo.FACT_PAGO', 'U') IS NULL
 CREATE TABLE dbo.FACT_PAGO (
     id_pago_dw      int IDENTITY(1,1) NOT NULL,
     id_pago_origen  int           NOT NULL,
@@ -133,6 +152,7 @@ CREATE TABLE dbo.FACT_PAGO (
 ) ON DW_Hechos;
 GO
 
+IF OBJECT_ID('dbo.FACT_MOROSIDAD', 'U') IS NULL
 CREATE TABLE dbo.FACT_MOROSIDAD (
     id_morosidad           int IDENTITY(1,1) NOT NULL,
     id_tiempo              int           NOT NULL,   -- fecha de corte
@@ -149,6 +169,7 @@ CREATE TABLE dbo.FACT_MOROSIDAD (
 ) ON DW_Hechos;
 GO
 
+IF OBJECT_ID('dbo.FACT_MANTENIMIENTO', 'U') IS NULL
 CREATE TABLE dbo.FACT_MANTENIMIENTO (
     id_fact_mantenimiento_dw  int IDENTITY(1,1) NOT NULL,
     id_mantenimiento_origen   int         NOT NULL,
@@ -165,6 +186,25 @@ CREATE TABLE dbo.FACT_MANTENIMIENTO (
     CONSTRAINT FK_FACT_MANTENIMIENTO_TipoTrabajo FOREIGN KEY (id_tipo_trabajo_dw) REFERENCES dbo.DIM_TIPO_TRABAJO (id_tipo_trabajo_dw),
     CONSTRAINT FK_FACT_MANTENIMIENTO_Empleado    FOREIGN KEY (id_empleado_dw)     REFERENCES dbo.DIM_EMPLEADO (id_empleado_dw),
     CONSTRAINT FK_FACT_MANTENIMIENTO_Conexion    FOREIGN KEY (id_conexion_dw)     REFERENCES dbo.DIM_CONEXION (id_conexion_dw)
+) ON DW_Hechos;
+GO
+
+IF OBJECT_ID('dbo.FACT_INCIDENCIA', 'U') IS NULL
+CREATE TABLE dbo.FACT_INCIDENCIA (
+    id_incidencia_dw       int IDENTITY(1,1) NOT NULL,
+    id_incidencia_origen   int          NOT NULL,
+    id_tiempo              int          NOT NULL,   -- fecha del incidente
+    id_tipo_incidencia_dw  int          NOT NULL,
+    id_conexion_dw         int          NOT NULL,
+    estado                 varchar(20)  NOT NULL,
+    prioridad              varchar(10)  NULL,
+    dias_atencion          int          NULL,       -- NULL si no está Resuelta
+    fecha_carga_dw         datetime     NOT NULL CONSTRAINT DF_FACT_INCIDENCIA_Carga DEFAULT (GETDATE()),
+    CONSTRAINT PK_FACT_INCIDENCIA PRIMARY KEY (id_incidencia_dw),
+    CONSTRAINT UQ_FACT_INCIDENCIA_Origen UNIQUE (id_incidencia_origen),
+    CONSTRAINT FK_FACT_INCIDENCIA_Tiempo FOREIGN KEY (id_tiempo)             REFERENCES dbo.DIM_TIEMPO (id_tiempo),
+    CONSTRAINT FK_FACT_INCIDENCIA_Tipo   FOREIGN KEY (id_tipo_incidencia_dw) REFERENCES dbo.DIM_TIPO_INCIDENCIA (id_tipo_incidencia_dw),
+    CONSTRAINT FK_FACT_INCIDENCIA_Conex  FOREIGN KEY (id_conexion_dw)        REFERENCES dbo.DIM_CONEXION (id_conexion_dw)
 ) ON DW_Hechos;
 GO
 
@@ -286,6 +326,7 @@ BEGIN
             UNION ALL SELECT MIN(CAST(fecha_emision AS date)) FROM dbo.Factura
             UNION ALL SELECT MIN(fecha_pago) FROM dbo.Pago
             UNION ALL SELECT MIN(CAST(fecha_inicio AS date)) FROM dbo.Mantenimiento
+            UNION ALL SELECT MIN(CAST(fecha_incidente AS date)) FROM dbo.Incidencia
         ) x(f);
         SET @desde = ISNULL(@desde, CAST(GETDATE() AS date));
 
@@ -344,6 +385,16 @@ BEGIN
             THEN UPDATE SET nombre_empleado = o.nombre, puesto = o.puesto
         WHEN NOT MATCHED
             THEN INSERT (id_empleado_origen, nombre_empleado, puesto) VALUES (o.id_empleado, o.nombre, o.puesto);
+        SET @filas += @@ROWCOUNT;
+
+        MERGE ASADA_DW.dbo.DIM_TIPO_INCIDENCIA AS d
+        USING (SELECT id_tipo_incidencia, nombre_incidencia FROM dbo.Tipo_Incidencia) AS o
+           ON d.id_tipo_incidencia_origen = o.id_tipo_incidencia
+        WHEN MATCHED AND d.nombre_incidencia <> o.nombre_incidencia
+            THEN UPDATE SET nombre_incidencia = o.nombre_incidencia
+        WHEN NOT MATCHED
+            THEN INSERT (id_tipo_incidencia_origen, nombre_incidencia)
+                 VALUES (o.id_tipo_incidencia, o.nombre_incidencia);
         SET @filas += @@ROWCOUNT;
 
         COMMIT;
@@ -635,6 +686,79 @@ BEGIN
 END;
 GO
 
+-- Incidencias -> FACT_INCIDENCIA. El tiempo de atención usa la última
+-- transición a Resuelta del historial, solo si el estado actual es Resuelta.
+CREATE OR ALTER PROCEDURE dbo.sp_ETL_CargaIncidenciasDW
+    @desde datetime = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DECLARE @id int, @filas int, @mensaje varchar(500);
+    SET @desde = ISNULL(@desde, dbo.fn_ETL_FechaDesde('FACT_INCIDENCIA'));
+    EXEC dbo.sp_ETL_IniciarControl 'FACT_INCIDENCIA', @id OUTPUT;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        MERGE ASADA_DW.dbo.FACT_INCIDENCIA AS d
+        USING (
+            SELECT i.id_incidencia, dbo.fn_IdTiempo(i.fecha_incidente) AS id_tiempo,
+                   dti.id_tipo_incidencia_dw, dc.id_conexion_dw, i.estado, i.prioridad,
+                   CASE WHEN i.estado = 'Resuelta'
+                             AND r.fecha_resolucion IS NOT NULL
+                             AND r.fecha_resolucion >= i.fecha_incidente
+                        THEN DATEDIFF(DAY, i.fecha_incidente, r.fecha_resolucion)
+                   END AS dias_atencion
+            FROM dbo.Incidencia i
+            JOIN dbo.Medidor m ON m.id_medidor = i.id_medidor
+            JOIN ASADA_DW.dbo.DIM_CONEXION dc ON dc.id_conexion_origen = m.id_conexion
+            JOIN ASADA_DW.dbo.DIM_TIPO_INCIDENCIA dti
+              ON dti.id_tipo_incidencia_origen = i.id_tipo_incidencia
+            OUTER APPLY (
+                SELECT MAX(h.fecha_evento) AS fecha_resolucion
+                FROM dbo.Historial_Incidencia h
+                WHERE h.id_incidencia = i.id_incidencia
+                  AND h.estado_actual = 'Resuelta'
+                  AND i.estado = 'Resuelta'
+            ) r
+            WHERE ISNULL(i.fecha_modificacion, i.fecha_incidente) >= @desde
+        ) AS o
+           ON d.id_incidencia_origen = o.id_incidencia
+        WHEN MATCHED AND (
+               d.id_tiempo <> o.id_tiempo
+            OR d.id_tipo_incidencia_dw <> o.id_tipo_incidencia_dw
+            OR d.id_conexion_dw <> o.id_conexion_dw
+            OR d.estado <> o.estado
+            OR ISNULL(d.prioridad, '') <> ISNULL(o.prioridad, '')
+            OR ISNULL(d.dias_atencion, -1) <> ISNULL(o.dias_atencion, -1))
+            THEN UPDATE SET id_tiempo = o.id_tiempo,
+                            id_tipo_incidencia_dw = o.id_tipo_incidencia_dw,
+                            id_conexion_dw = o.id_conexion_dw,
+                            estado = o.estado,
+                            prioridad = o.prioridad,
+                            dias_atencion = o.dias_atencion,
+                            fecha_carga_dw = GETDATE()
+        WHEN NOT MATCHED
+            THEN INSERT (id_incidencia_origen, id_tiempo, id_tipo_incidencia_dw, id_conexion_dw,
+                         estado, prioridad, dias_atencion)
+                 VALUES (o.id_incidencia, o.id_tiempo, o.id_tipo_incidencia_dw, o.id_conexion_dw,
+                         o.estado, o.prioridad, o.dias_atencion);
+        SET @filas = @@ROWCOUNT;
+
+        COMMIT;
+        EXEC dbo.sp_ETL_FinalizarControl @id, 'Exitoso', @filas;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        SET @mensaje = LEFT(ERROR_MESSAGE(), 500);
+        EXEC dbo.sp_ETL_FinalizarControl @id, 'Fallido', 0, @mensaje;
+        THROW;
+    END CATCH
+END;
+GO
+
    --Validación, coordinación y conciliación
 -- Detecta registros del origen que no llegaron al DW e inconsistencias en los hechos.
 CREATE OR ALTER PROCEDURE dbo.sp_ValidarCargaDW
@@ -671,6 +795,79 @@ BEGIN
     FROM dbo.vw_Abonados a WHERE NOT EXISTS (SELECT 1 FROM ASADA_DW.dbo.DIM_ABONADO d
                                              WHERE d.tipo_abonado = a.tipo_abonado AND d.id_abonado_origen = a.id_abonado);
 
+    INSERT INTO @r SELECT 'Incidencias sin hecho en FACT_INCIDENCIA', COUNT(*)
+    FROM dbo.Incidencia i WHERE NOT EXISTS (SELECT 1 FROM ASADA_DW.dbo.FACT_INCIDENCIA f WHERE f.id_incidencia_origen = i.id_incidencia);
+
+    INSERT INTO @r SELECT 'Tipos de incidencia sin dimensión', COUNT(*)
+    FROM dbo.Tipo_Incidencia t WHERE NOT EXISTS (SELECT 1 FROM ASADA_DW.dbo.DIM_TIPO_INCIDENCIA d WHERE d.id_tipo_incidencia_origen = t.id_tipo_incidencia);
+
+    INSERT INTO @r SELECT 'AVISO: incidencias Resuelta en DW sin días de atención (sin historial o fecha inválida)', COUNT(*)
+    FROM ASADA_DW.dbo.FACT_INCIDENCIA WHERE estado = 'Resuelta' AND dias_atencion IS NULL;
+
+    INSERT INTO @r SELECT 'Mantenimientos cerrados sin hecho en FACT_MANTENIMIENTO', COUNT(*)
+    FROM dbo.Mantenimiento mt
+    WHERE mt.estado IN ('Finalizado', 'Cancelado') AND mt.fecha_fin IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM ASADA_DW.dbo.FACT_MANTENIMIENTO f WHERE f.id_mantenimiento_origen = mt.id_mantenimiento);
+
+    INSERT INTO @r SELECT 'Hechos de mantenimiento cuyo origen no está cerrado', COUNT(*)
+    FROM ASADA_DW.dbo.FACT_MANTENIMIENTO f
+    LEFT JOIN dbo.Mantenimiento mt ON mt.id_mantenimiento = f.id_mantenimiento_origen
+    WHERE mt.id_mantenimiento IS NULL
+       OR mt.estado NOT IN ('Finalizado', 'Cancelado')
+       OR mt.fecha_fin IS NULL;
+
+    INSERT INTO @r SELECT 'Hechos de mantenimiento con días de resolución incoherentes', COUNT(*)
+    FROM ASADA_DW.dbo.FACT_MANTENIMIENTO f
+    JOIN dbo.Mantenimiento mt ON mt.id_mantenimiento = f.id_mantenimiento_origen
+    WHERE f.dias_resolucion < 0
+       OR f.dias_resolucion <> DATEDIFF(DAY, mt.fecha_inicio, mt.fecha_fin);
+
+    INSERT INTO @r SELECT 'Tipos de trabajo sin dimensión', COUNT(*)
+    FROM dbo.Tipo_Trabajo t
+    WHERE NOT EXISTS (SELECT 1 FROM ASADA_DW.dbo.DIM_TIPO_TRABAJO d WHERE d.id_tipo_trabajo_origen = t.id_tipo_trabajo);
+
+    INSERT INTO @r SELECT 'Empleados sin dimensión', COUNT(*)
+    FROM dbo.Empleado e
+    WHERE NOT EXISTS (SELECT 1 FROM ASADA_DW.dbo.DIM_EMPLEADO d WHERE d.id_empleado_origen = e.id_empleado);
+
+    INSERT INTO @r SELECT 'Hechos de morosidad con saldo o cantidad inválidos', COUNT(*)
+    FROM ASADA_DW.dbo.FACT_MOROSIDAD
+    WHERE saldo_vencido < 0 OR cantidad_facturas_ven < 1;
+
+    -- La foto se compara con el saldo actual solo si existe un corte de hoy.
+    IF EXISTS (
+        SELECT 1 FROM ASADA_DW.dbo.FACT_MOROSIDAD
+        WHERE id_tiempo = dbo.fn_IdTiempo(CAST(GETDATE() AS date)))
+    BEGIN
+        INSERT INTO @r SELECT 'Conexiones morosas de hoy sin foto en FACT_MOROSIDAD', COUNT(*)
+        FROM (
+            SELECT dc.id_conexion_dw
+            FROM dbo.vw_SaldoFactura s
+            JOIN dbo.Conexion c ON c.id_conexion = s.id_conexion
+            JOIN ASADA_DW.dbo.DIM_CONEXION dc ON dc.id_conexion_origen = c.id_conexion
+            WHERE s.estado <> 'Pagada' AND s.saldo > 0 AND s.fecha_vencimiento < CAST(GETDATE() AS date)
+            GROUP BY dc.id_conexion_dw
+        ) o
+        WHERE NOT EXISTS (
+            SELECT 1 FROM ASADA_DW.dbo.FACT_MOROSIDAD m
+            WHERE m.id_tiempo = dbo.fn_IdTiempo(CAST(GETDATE() AS date))
+              AND m.id_conexion_dw = o.id_conexion_dw);
+
+        INSERT INTO @r SELECT 'Fotos de morosidad de hoy sin saldo vencido actual', COUNT(*)
+        FROM ASADA_DW.dbo.FACT_MOROSIDAD m
+        WHERE m.id_tiempo = dbo.fn_IdTiempo(CAST(GETDATE() AS date))
+          AND NOT EXISTS (
+              SELECT 1
+              FROM dbo.vw_SaldoFactura s
+              JOIN dbo.Conexion c ON c.id_conexion = s.id_conexion
+              JOIN ASADA_DW.dbo.DIM_CONEXION dc ON dc.id_conexion_origen = c.id_conexion
+              WHERE dc.id_conexion_dw = m.id_conexion_dw
+                AND s.estado <> 'Pagada' AND s.saldo > 0
+                AND s.fecha_vencimiento < CAST(GETDATE() AS date));
+    END
+    ELSE
+        INSERT INTO @r SELECT 'AVISO: no hay foto de morosidad con corte de hoy', 1;
+
     SELECT @problemas = COUNT(*) FROM @r WHERE cantidad > 0;
 
     SELECT verificacion, cantidad, CASE WHEN cantidad = 0 THEN 'OK' ELSE 'REVISAR' END AS resultado FROM @r;
@@ -704,6 +901,7 @@ BEGIN
     BEGIN TRY EXEC dbo.sp_ETL_CargaFacturacionDW    @desde = @desde; END TRY BEGIN CATCH SET @fallos += 1; END CATCH
     BEGIN TRY EXEC dbo.sp_ETL_CargaMorosidadDW;                      END TRY BEGIN CATCH SET @fallos += 1; END CATCH
     BEGIN TRY EXEC dbo.sp_ETL_CargaMantenimientosDW @desde = @desde; END TRY BEGIN CATCH SET @fallos += 1; END CATCH
+    BEGIN TRY EXEC dbo.sp_ETL_CargaIncidenciasDW    @desde = @desde; END TRY BEGIN CATCH SET @fallos += 1; END CATCH
 
     EXEC dbo.sp_ValidarCargaDW @problemas = @problemas OUTPUT;
 
@@ -748,6 +946,43 @@ BEGIN
            (SELECT COUNT(*) FROM ASADA_DW.dbo.FACT_PAGO WHERE id_tiempo >= @t_desde AND id_tiempo < @t_hasta),
            (SELECT ISNULL(SUM(monto), 0) FROM dbo.Pago WHERE estado = 'Aplicado' AND fecha_pago >= @desde AND fecha_pago < @hasta),
            (SELECT ISNULL(SUM(monto_pagado), 0) FROM ASADA_DW.dbo.FACT_PAGO WHERE id_tiempo >= @t_desde AND id_tiempo < @t_hasta);
+
+    IF OBJECT_ID('ASADA_DW.dbo.FACT_INCIDENCIA', 'U') IS NOT NULL
+    INSERT INTO #c
+    SELECT N'Incidencias',
+           (SELECT COUNT(*) FROM dbo.Incidencia WHERE fecha_incidente >= @desde AND fecha_incidente < @hasta),
+           (SELECT COUNT(*) FROM ASADA_DW.dbo.FACT_INCIDENCIA WHERE id_tiempo >= @t_desde AND id_tiempo < @t_hasta),
+           (SELECT COUNT(*) FROM dbo.Incidencia WHERE estado = 'Resuelta' AND fecha_incidente >= @desde AND fecha_incidente < @hasta),
+           (SELECT COUNT(*) FROM ASADA_DW.dbo.FACT_INCIDENCIA WHERE estado = 'Resuelta' AND id_tiempo >= @t_desde AND id_tiempo < @t_hasta);
+
+    -- Cierre del trabajo (fecha_fin), no la fecha de programación.
+    INSERT INTO #c
+    SELECT N'Mantenimientos',
+           (SELECT COUNT(*) FROM dbo.Mantenimiento
+            WHERE estado IN ('Finalizado', 'Cancelado') AND fecha_fin >= @desde AND fecha_fin < @hasta),
+           (SELECT COUNT(*) FROM ASADA_DW.dbo.FACT_MANTENIMIENTO WHERE id_tiempo >= @t_desde AND id_tiempo < @t_hasta),
+           (SELECT ISNULL(SUM(DATEDIFF(DAY, fecha_inicio, fecha_fin)), 0) FROM dbo.Mantenimiento
+            WHERE estado IN ('Finalizado', 'Cancelado') AND fecha_fin >= @desde AND fecha_fin < @hasta),
+           (SELECT ISNULL(SUM(dias_resolucion), 0) FROM ASADA_DW.dbo.FACT_MANTENIMIENTO
+            WHERE id_tiempo >= @t_desde AND id_tiempo < @t_hasta);
+
+    -- Solo si hoy cae en el periodo y hay foto de hoy: el saldo actual y la foto
+    -- son el mismo momento. Una foto de otro día no se compara con el saldo de ahora.
+    IF CAST(GETDATE() AS date) >= @desde AND CAST(GETDATE() AS date) < @hasta
+       AND EXISTS (SELECT 1 FROM ASADA_DW.dbo.FACT_MOROSIDAD
+                   WHERE id_tiempo = dbo.fn_IdTiempo(CAST(GETDATE() AS date)))
+    INSERT INTO #c
+    SELECT N'Morosidad (corte de hoy)',
+           (SELECT COUNT(*) FROM (
+                SELECT s.id_conexion FROM dbo.vw_SaldoFactura s
+                WHERE s.estado <> 'Pagada' AND s.saldo > 0 AND s.fecha_vencimiento < CAST(GETDATE() AS date)
+                GROUP BY s.id_conexion) x),
+           (SELECT COUNT(*) FROM ASADA_DW.dbo.FACT_MOROSIDAD
+            WHERE id_tiempo = dbo.fn_IdTiempo(CAST(GETDATE() AS date))),
+           (SELECT ISNULL(SUM(s.saldo), 0) FROM dbo.vw_SaldoFactura s
+            WHERE s.estado <> 'Pagada' AND s.saldo > 0 AND s.fecha_vencimiento < CAST(GETDATE() AS date)),
+           (SELECT ISNULL(SUM(saldo_vencido), 0) FROM ASADA_DW.dbo.FACT_MOROSIDAD
+            WHERE id_tiempo = dbo.fn_IdTiempo(CAST(GETDATE() AS date)));
 
     SELECT medida, cantidad_origen, cantidad_dw, cantidad_origen - cantidad_dw AS diferencia_cantidad,
            importe_origen, importe_dw, importe_origen - importe_dw AS diferencia_importe,
@@ -798,6 +1033,7 @@ BEGIN
     ELSE IF @tabla IN ('FACT_FACTURACION', 'FACT_PAGO') EXEC dbo.sp_ETL_CargaFacturacionDW;
     ELSE IF @tabla = 'FACT_MOROSIDAD'               EXEC dbo.sp_ETL_CargaMorosidadDW;
     ELSE IF @tabla = 'FACT_MANTENIMIENTO'           EXEC dbo.sp_ETL_CargaMantenimientosDW;
+    ELSE IF @tabla = 'FACT_INCIDENCIA'              EXEC dbo.sp_ETL_CargaIncidenciasDW;
     ELSE THROW 50903, 'No hay un proceso ETL asociado a esa tabla destino.', 1;
 END;
 GO

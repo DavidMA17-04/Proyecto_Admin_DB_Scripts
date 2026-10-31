@@ -5,6 +5,12 @@
      - Recargo_mora.anulado_manual
      - Tablas Tramo_Mora y Parametro_Mora (con sus valores iniciales)
      - Funciones, vistas y procedimientos de pagos y mora nuevos
+     - Filegroups DW_Dimensiones y DW_Hechos (si faltan) sin duplicar archivos
+     - DIM_TIPO_INCIDENCIA y FACT_INCIDENCIA (si no existen) y ETL de incidencias
+     - Acceso mínimo de motor a ASADA_DW (Rol_LecturaDW / Rol_CargaDW)
+     - Default de Incidencia.fecha_modificacion (filas ya guardadas no se tocan)
+   No borra ni recrea tablas con datos. Para una instalación nueva use
+   ejecutar_todo.sql, no este script.
    Uso: sqlcmd -S localhost -E -C -b -f 65001 -i actualizar_a_development.sql
         (desde la carpeta sql) o en SSMS con modo SQLCMD activado.
    --------------------------------------------------------------------- */
@@ -12,7 +18,81 @@
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
+
+/* Filegroups del DW: mismo patrón que 00_crear_bases.sql.
+   La carpeta de los .ndf se toma de un archivo de datos ya existente
+   de ASADA_DW; no se asume c:\sqldata. */
+IF DB_ID('ASADA_DW') IS NULL
+    THROW 51001, 'No existe ASADA_DW. Para una instalación nueva use ejecutar_todo.sql.', 1;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM ASADA_DW.sys.filegroups WHERE name = 'DW_Dimensiones')
+    ALTER DATABASE ASADA_DW ADD FILEGROUP DW_Dimensiones;
+GO
+IF NOT EXISTS (SELECT 1 FROM ASADA_DW.sys.filegroups WHERE name = 'DW_Hechos')
+    ALTER DATABASE ASADA_DW ADD FILEGROUP DW_Hechos;
+GO
+
+DECLARE @dir nvarchar(4000), @origen nvarchar(4000), @pos int,
+        @sql nvarchar(max), @logico sysname, @ruta nvarchar(4000);
+
+SELECT TOP (1) @origen = physical_name
+FROM ASADA_DW.sys.database_files
+WHERE type = 0
+ORDER BY file_id;
+
+SET @pos = CASE WHEN @origen IS NULL THEN 0 ELSE CHARINDEX('\', REVERSE(@origen)) END;
+IF @pos = 0
+    THROW 51002, 'No se encontró un archivo de datos de ASADA_DW para ubicar los filegroups nuevos.', 1;
+SET @dir = LEFT(@origen, LEN(@origen) - @pos);
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM ASADA_DW.sys.database_files df
+    JOIN ASADA_DW.sys.filegroups fg ON fg.data_space_id = df.data_space_id
+    WHERE fg.name = 'DW_Dimensiones')
+BEGIN
+    SET @logico = N'DW_Dimensiones_Data';
+    IF EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE name = @logico)
+        SET @logico = N'DW_Dimensiones_Data_dev';
+    SET @ruta = @dir + N'\' + @logico + N'.ndf';
+    IF EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE physical_name = @ruta)
+        THROW 51003, 'Ya hay un archivo de ASADA_DW en la ruta calculada para DW_Dimensiones.', 1;
+    SET @sql = N'ALTER DATABASE ASADA_DW ADD FILE (NAME = ' + QUOTENAME(@logico, '''')
+             + N', FILENAME = ' + QUOTENAME(@ruta, '''')
+             + N', SIZE = 50MB, MAXSIZE = 300MB, FILEGROWTH = 25MB) TO FILEGROUP DW_Dimensiones;';
+    EXEC sys.sp_executesql @sql;
+END
+
+IF NOT EXISTS (
+    SELECT 1
+    FROM ASADA_DW.sys.database_files df
+    JOIN ASADA_DW.sys.filegroups fg ON fg.data_space_id = df.data_space_id
+    WHERE fg.name = 'DW_Hechos')
+BEGIN
+    SET @logico = N'DW_Hechos_Data';
+    IF EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE name = @logico)
+        SET @logico = N'DW_Hechos_Data_dev';
+    SET @ruta = @dir + N'\' + @logico + N'.ndf';
+    IF EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE physical_name = @ruta)
+        THROW 51004, 'Ya hay un archivo de ASADA_DW en la ruta calculada para DW_Hechos.', 1;
+    SET @sql = N'ALTER DATABASE ASADA_DW ADD FILE (NAME = ' + QUOTENAME(@logico, '''')
+             + N', FILENAME = ' + QUOTENAME(@ruta, '''')
+             + N', SIZE = 100MB, MAXSIZE = 1000MB, FILEGROWTH = 50MB) TO FILEGROUP DW_Hechos;';
+    EXEC sys.sp_executesql @sql;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM ASADA_DW.sys.filegroups WHERE name = 'DW_Hechos' AND is_default = 1)
+    ALTER DATABASE ASADA_DW MODIFY FILEGROUP DW_Hechos DEFAULT;
+GO
+
 USE ASADA;
+GO
+
+IF OBJECT_ID('dbo.DF_Incidencia_FechaMod', 'D') IS NULL
+    ALTER TABLE dbo.Incidencia
+        ADD CONSTRAINT DF_Incidencia_FechaMod DEFAULT (GETDATE()) FOR fecha_modificacion;
 GO
 
 IF COL_LENGTH('dbo.Recargo_mora', 'anulado_manual') IS NULL
@@ -82,9 +162,14 @@ BEGIN
 END;
 GO
 
--- Estos scripts solo usan CREATE OR ALTER, así que se pueden volver a ejecutar.
+-- Estos scripts solo usan CREATE OR ALTER (13 crea DIM/FACT de incidencias
+-- solo si no existen; no borra tablas con datos).
 :r 04_vistas.sql
 :r 07_procedimientos_pagos_mora.sql
+:r 13_data_warehouse.sql
+:r 14_triggers.sql
+:r 18_pruebas.sql
+:r 15_acceso_dw.sql
 
 PRINT 'Base ASADA actualizada a development.';
 GO

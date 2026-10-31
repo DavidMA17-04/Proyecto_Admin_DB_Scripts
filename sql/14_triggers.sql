@@ -356,6 +356,31 @@ BEGIN
 END;
 GO
 
+-- Marca fecha_modificacion cuando cambian datos de negocio distintos del estado.
+-- El cambio de estado ya sella la fecha en sp_CambiarEstadoIncidencia.
+-- No escribe bitácora ni historial: esos triggers siguen filtrando por estado.
+CREATE OR ALTER TRIGGER dbo.trg_IncidenciaFechaModificacion
+ON dbo.Incidencia
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE i
+    SET fecha_modificacion = GETDATE()
+    FROM dbo.Incidencia i
+    JOIN inserted n ON n.id_incidencia = i.id_incidencia
+    JOIN deleted  d ON d.id_incidencia = i.id_incidencia
+    WHERE d.id_medidor          <> n.id_medidor
+       OR d.id_tipo_incidencia  <> n.id_tipo_incidencia
+       OR d.fecha_incidente     <> n.fecha_incidente
+       OR d.descripcion         <> n.descripcion
+       OR ISNULL(d.ubicacion, '') <> ISNULL(n.ubicacion, '')
+       OR ISNULL(d.prioridad, '') <> ISNULL(n.prioridad, '');
+END;
+GO
+
    --Mantenimiento
 -- Registra en Historial_Mantenimiento la creación y cada cambio de estado.
 CREATE OR ALTER TRIGGER dbo.trg_AuditarMantenimiento

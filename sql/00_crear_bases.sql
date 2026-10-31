@@ -158,9 +158,9 @@ GO
 /* ---------------------------------------------------------------------
    Data Warehouse ASADA_DW
      DW_Dimensiones: DIM_TIEMPO, DIM_ABONADO, DIM_CONEXION, DIM_TARIFA,
-                     DIM_TIPO_TRABAJO, DIM_EMPLEADO
+                     DIM_TIPO_TRABAJO, DIM_TIPO_INCIDENCIA, DIM_EMPLEADO
      DW_Hechos (DEF.): FACT_CONSUMO, FACT_FACTURACION, FACT_PAGO,
-                     FACT_MOROSIDAD, FACT_MANTENIMIENTO
+                     FACT_MOROSIDAD, FACT_MANTENIMIENTO, FACT_INCIDENCIA
    Los hechos crecen con cada carga del ETL; las dimensiones casi no.
    --------------------------------------------------------------------- */
 IF DB_ID('ASADA_DW') IS NULL

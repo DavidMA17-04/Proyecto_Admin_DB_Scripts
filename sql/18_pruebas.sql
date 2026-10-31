@@ -209,6 +209,8 @@ BEGIN
         DELETE FROM ASADA_DW.dbo.FACT_FACTURACION   WHERE id_factura_origen IN (SELECT id FROM @facturas);
         DELETE FROM ASADA_DW.dbo.FACT_CONSUMO       WHERE id_lectura_origen IN (SELECT id FROM @lecturas);
         DELETE FROM ASADA_DW.dbo.FACT_MANTENIMIENTO WHERE id_mantenimiento_origen IN (SELECT id FROM @mants);
+        IF OBJECT_ID('ASADA_DW.dbo.FACT_INCIDENCIA', 'U') IS NOT NULL
+            DELETE FROM ASADA_DW.dbo.FACT_INCIDENCIA WHERE id_incidencia_origen IN (SELECT id FROM @incidencias);
         DELETE FROM ASADA_DW.dbo.FACT_MOROSIDAD     WHERE id_conexion_dw IN (SELECT id_conexion_dw FROM ASADA_DW.dbo.DIM_CONEXION WHERE id_conexion_origen IN (SELECT id FROM @conexiones));
 
         -- Base transaccional (de hijos a padres)
@@ -637,6 +639,79 @@ BEGIN
         IF @@TRANCOUNT > 0 ROLLBACK;
         EXEC dbo.sp_CerrarSesion;
         INSERT @r VALUES ('T25', 'Bitácora', 'La bitácora registra quién modificó un abonado y qué cambió', 'FALLÓ', ERROR_MESSAGE());
+    END CATCH
+
+    --Data Warehouse (T26–T28). Solo leen el origen y ASADA_DW; no cargan ni limpian.
+    BEGIN TRY
+        SELECT @n = COUNT(*)
+        FROM dbo.Lectura l
+        JOIN dbo.Medidor m ON m.id_medidor = l.id_medidor
+        WHERE m.numero_serie LIKE 'PRB-%';
+        SELECT @id = COUNT(*)
+        FROM ASADA_DW.dbo.FACT_CONSUMO f
+        JOIN dbo.Lectura l ON l.id_lectura = f.id_lectura_origen
+        JOIN dbo.Medidor m ON m.id_medidor = l.id_medidor
+        WHERE m.numero_serie LIKE 'PRB-%';
+        SELECT @id2 = COUNT(*) FROM dbo.Incidencia;
+        SELECT @consumo = COUNT(*) FROM ASADA_DW.dbo.FACT_INCIDENCIA;
+        SELECT @v = COUNT(*) FROM dbo.Mantenimiento
+        WHERE estado IN ('Finalizado', 'Cancelado') AND fecha_fin IS NOT NULL;
+        SELECT @v2 = COUNT(*) FROM ASADA_DW.dbo.FACT_MANTENIMIENTO;
+        SELECT @res = CAST((
+            SELECT COUNT(*) FROM dbo.vw_UltimaCargaPorTabla
+            WHERE estado = 'Exitoso'
+              AND nombre_tabla_destino IN (
+                  'DIMENSIONES', 'FACT_CONSUMO', 'FACT_FACTURACION', 'FACT_PAGO',
+                  'FACT_MOROSIDAD', 'FACT_MANTENIMIENTO', 'FACT_INCIDENCIA')
+        ) AS varchar(30));
+
+        INSERT @r VALUES ('T26', 'Data Warehouse',
+            'La carga del DW tiene los hechos de la prueba (consumo, incidencias y mantenimientos cerrados)',
+            IIF(@n > 0 AND @n = @id AND @id2 > 0 AND @id2 = @consumo AND @v > 0 AND @v = @v2 AND @res = '7',
+                'PASÓ', 'FALLÓ'),
+            CONCAT('lecturas=', @n, '/', @id, ', incidencias=', @id2, '/', @consumo,
+                   ', mant. cerrados=', @v, '/', @v2, ', etl_ok=', @res));
+    END TRY
+    BEGIN CATCH
+        INSERT @r VALUES ('T26', 'Data Warehouse',
+            'La carga del DW tiene los hechos de la prueba (consumo, incidencias y mantenimientos cerrados)',
+            'FALLÓ', ERROR_MESSAGE());
+    END CATCH
+
+    BEGIN TRY
+        DECLARE @val TABLE (verificacion varchar(100), cantidad int, resultado varchar(10));
+        INSERT INTO @val EXEC dbo.sp_ValidarCargaDW @problemas = @id OUTPUT;
+        INSERT @r VALUES ('T27', 'Data Warehouse',
+            'La validación de la carga no reporta problemas con los datos de prueba',
+            IIF(@id = 0, 'PASÓ', 'FALLÓ'), CONCAT('problemas=', @id));
+    END TRY
+    BEGIN CATCH
+        INSERT @r VALUES ('T27', 'Data Warehouse',
+            'La validación de la carga no reporta problemas con los datos de prueba',
+            'FALLÓ', ERROR_MESSAGE());
+    END CATCH
+
+    BEGIN TRY
+        DECLARE @c TABLE (
+            medida nvarchar(30), cantidad_origen int, cantidad_dw int, diferencia_cantidad int,
+            importe_origen decimal(18,2), importe_dw decimal(18,2), diferencia_importe decimal(18,2),
+            resultado varchar(20)
+        );
+        SELECT @id = MAX(YEAR(fecha_lectura_actual) * 100 + MONTH(fecha_lectura_actual)) FROM dbo.Lectura;
+        SET @id2 = YEAR(GETDATE()) * 100 + MONTH(GETDATE());
+        INSERT INTO @c EXEC dbo.sp_ConciliarOrigenDW @periodo = @id;
+        IF @id2 <> @id
+            INSERT INTO @c EXEC dbo.sp_ConciliarOrigenDW @periodo = @id2;
+        SELECT @n = COUNT(*) FROM @c WHERE resultado <> 'Conciliado';
+        INSERT @r VALUES ('T28', 'Data Warehouse',
+            'La conciliación origen-DW del periodo de prueba no tiene diferencias',
+            IIF(@n = 0 AND EXISTS (SELECT 1 FROM @c), 'PASÓ', 'FALLÓ'),
+            CONCAT('periodos=', @id, ',', @id2, ', filas=', (SELECT COUNT(*) FROM @c), ', diferencias=', @n));
+    END TRY
+    BEGIN CATCH
+        INSERT @r VALUES ('T28', 'Data Warehouse',
+            'La conciliación origen-DW del periodo de prueba no tiene diferencias',
+            'FALLÓ', ERROR_MESSAGE());
     END CATCH
 
     --Resultados
