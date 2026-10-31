@@ -450,8 +450,24 @@ BEGIN
             WHERE f.fecha_emision >= @desde_fact OR f.fecha_modificacion >= @desde_fact
         ) AS o
            ON d.id_factura_origen = o.id_factura
-        WHEN MATCHED AND d.estado <> o.estado
-            THEN UPDATE SET estado = o.estado, fecha_carga_dw = GETDATE()
+        WHEN MATCHED AND (
+               d.id_tiempo <> o.id_tiempo
+            OR d.id_abonado_dw <> o.id_abonado_dw
+            OR d.id_conexion_dw <> o.id_conexion_dw
+            OR d.id_tarifa_dw <> o.id_tarifa_dw
+            OR d.monto_consumo <> o.monto_consumo
+            OR d.monto_fijo <> o.monto_fijo
+            OR d.monto_total <> o.monto_total
+            OR d.estado <> o.estado)
+            THEN UPDATE SET id_tiempo = o.id_tiempo,
+                            id_abonado_dw = o.id_abonado_dw,
+                            id_conexion_dw = o.id_conexion_dw,
+                            id_tarifa_dw = o.id_tarifa_dw,
+                            monto_consumo = o.monto_consumo,
+                            monto_fijo = o.monto_fijo,
+                            monto_total = o.monto_total,
+                            estado = o.estado,
+                            fecha_carga_dw = GETDATE()
         WHEN NOT MATCHED
             THEN INSERT (id_factura_origen, id_tiempo, id_abonado_dw, id_conexion_dw, id_tarifa_dw,
                          monto_consumo, monto_fijo, monto_total, estado)
@@ -490,8 +506,18 @@ BEGIN
             WHERE p.estado = 'Aplicado' AND p.fecha_pago >= CAST(@desde_pago AS date)
         ) AS o
            ON d.id_pago_origen = o.id_pago
-        WHEN MATCHED AND d.monto_recargo <> o.recargo
-            THEN UPDATE SET monto_recargo = o.recargo, fecha_carga_dw = GETDATE()
+        WHEN MATCHED AND (
+               d.id_tiempo <> o.id_tiempo
+            OR d.id_abonado_dw <> o.id_abonado_dw
+            OR d.id_conexion_dw <> o.id_conexion_dw
+            OR d.monto_pagado <> o.monto
+            OR d.monto_recargo <> o.recargo)
+            THEN UPDATE SET id_tiempo = o.id_tiempo,
+                            id_abonado_dw = o.id_abonado_dw,
+                            id_conexion_dw = o.id_conexion_dw,
+                            monto_pagado = o.monto,
+                            monto_recargo = o.recargo,
+                            fecha_carga_dw = GETDATE()
         WHEN NOT MATCHED
             THEN INSERT (id_pago_origen, id_tiempo, id_abonado_dw, id_conexion_dw, monto_pagado, monto_recargo)
                  VALUES (o.id_pago, o.id_tiempo, o.id_abonado_dw, o.id_conexion_dw, o.monto, o.recargo);
