@@ -27,6 +27,11 @@ GO
 CREATE INDEX IX_Lectura_IdMedidor_Fecha ON dbo.Lectura (id_medidor, fecha_lectura_actual DESC) INCLUDE (lectura_actual, consumo);
 GO
 
+--Alertas de consumo: búsqueda por lectura y listados por estado/fecha
+CREATE INDEX IX_AlertaConsumo_IdLectura     ON dbo.Alerta_Consumo (id_lectura) INCLUDE (id_alerta);
+CREATE INDEX IX_AlertaConsumo_Estado_Fecha  ON dbo.Alerta_Consumo (estado, fecha_deteccion);
+GO
+
 --Factura: filtros por estado (reportes de morosidad)
 CREATE INDEX IX_Factura_Estado ON dbo.Factura (estado, fecha_vencimiento) INCLUDE (monto_total);
 GO

@@ -88,11 +88,13 @@ WHERE p.fecha_vencimiento < CAST(GETDATE() AS date)
 GROUP BY a.tipo_abonado, a.id_abonado, a.identificacion, a.nombre_completo, p.id_conexion;
 GO
 
---Medidores activos sin lectura en el mes actual
+--Medidores activos sin lectura en el mes actual (ruta del fontanero)
 CREATE OR ALTER VIEW dbo.vw_MedidorNoLeido
 AS
 SELECT
     m.id_medidor, m.numero_serie, m.id_conexion, c.ubicacion,
+    dbo.fn_ObtenerNombreCompleto(c.id_abonado_fisico, c.id_abonado_juridico) AS abonado,
+    m.ultima_lectura,
     m.fecha_ultima_lectura,
     DATEDIFF(DAY, m.fecha_ultima_lectura, GETDATE()) AS dias_sin_lectura
 FROM dbo.Medidor m
@@ -104,6 +106,19 @@ WHERE m.estado = 'Activo'
         WHERE l.id_medidor = m.id_medidor
           AND l.fecha_lectura_actual >= DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1)
   );
+GO
+
+--Medidores activos con última lectura (catálogo del formulario de registro)
+CREATE OR ALTER VIEW dbo.vw_MedidoresParaLectura
+AS
+SELECT
+    m.id_medidor, m.numero_serie, m.id_conexion, c.ubicacion,
+    dbo.fn_ObtenerNombreCompleto(c.id_abonado_fisico, c.id_abonado_juridico) AS abonado,
+    m.ultima_lectura,
+    m.fecha_ultima_lectura
+FROM dbo.Medidor m
+JOIN dbo.Conexion c ON c.id_conexion = m.id_conexion
+WHERE m.estado = 'Activo';
 GO
 
 --Resumen de consumo mensual por conexión
