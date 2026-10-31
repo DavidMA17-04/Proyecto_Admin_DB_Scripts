@@ -310,7 +310,7 @@ CREATE TABLE dbo.Incidencia (
     ubicacion           varchar(20)  NULL,
     estado              varchar(20)  NOT NULL CONSTRAINT DF_Incidencia_Estado DEFAULT ('Abierta'),
     prioridad           varchar(10)  NULL,
-    fecha_modificacion  datetime     NULL,
+    fecha_modificacion  datetime     NULL CONSTRAINT DF_Incidencia_FechaMod DEFAULT (GETDATE()),
     CONSTRAINT PK_Incidencia PRIMARY KEY (id_incidencia),
     CONSTRAINT FK_Incidencia_Medidor        FOREIGN KEY (id_medidor)         REFERENCES dbo.Medidor (id_medidor),
     CONSTRAINT FK_Incidencia_TipoIncidencia FOREIGN KEY (id_tipo_incidencia) REFERENCES dbo.Tipo_Incidencia (id_tipo_incidencia),

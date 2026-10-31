@@ -178,6 +178,15 @@ DENY EXECUTE ON dbo.sp_MantenimientoIndices           TO Rol_Operador;
 DENY EXECUTE ON dbo.sp_VerificarIntegridadBD          TO Rol_Operador;
 DENY EXECUTE ON dbo.sp_EjecutarCargaDW                TO Rol_Operador;
 DENY EXECUTE ON dbo.sp_ReintentarCargaETL             TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_IniciarControl             TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_FinalizarControl           TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargarDimTiempo            TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargarDimensionesDW        TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaLecturasDW            TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaFacturacionDW         TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaMorosidadDW           TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaMantenimientosDW      TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaIncidenciasDW         TO Rol_Operador;
 -- Los DENY de sp_CargarDatosPrueba y sp_LimpiarDatosPrueba .
 GO
 
@@ -237,26 +246,13 @@ GRANT SELECT  ON dbo.Politica_Respaldo                 TO Rol_OperadorRespaldo;
 GO
 
 
-   --Data Warehouse: lectura para la Junta Directiva
-USE ASADA_DW;
-GO
-IF DATABASE_PRINCIPAL_ID('Rol_LecturaDW') IS NULL CREATE ROLE Rol_LecturaDW;
-GRANT SELECT ON SCHEMA::dbo TO Rol_LecturaDW;
-GO
-
-/* ---------------------------------------------------------------------
-   Ejemplo de logins (ejecutar como sysadmin y cambiar las contraseñas):
-
-   USE master;
-   CREATE LOGIN app_asada   WITH PASSWORD = 'Cambiar#Esta1', CHECK_POLICY = ON;
-   CREATE LOGIN dba_asada   WITH PASSWORD = 'Cambiar#Esta2', CHECK_POLICY = ON;
-   CREATE LOGIN junta_asada WITH PASSWORD = 'Cambiar#Esta3', CHECK_POLICY = ON;
-
-   USE ASADA;
-   CREATE USER app_asada   FOR LOGIN app_asada;   ALTER ROLE Rol_Operador       ADD MEMBER app_asada;
-   CREATE USER dba_asada   FOR LOGIN dba_asada;   ALTER ROLE Rol_DBA            ADD MEMBER dba_asada;
-   CREATE USER junta_asada FOR LOGIN junta_asada; ALTER ROLE Rol_JuntaDirectiva ADD MEMBER junta_asada;
-
-   USE ASADA_DW;
-   CREATE USER junta_asada FOR LOGIN junta_asada; ALTER ROLE Rol_LecturaDW ADD MEMBER junta_asada;
-   --------------------------------------------------------------------- */
+   -- Data Warehouse: roles en 15_acceso_dw.sql (lo invocan ejecutar_todo
+   -- y actualizar_a_development). No se crean logins. Ejemplo:
+   --
+   --   USE ASADA_DW;
+   --   CREATE USER [nombre_del_login] FROM LOGIN [nombre_del_login];
+   --   ALTER ROLE Rol_LecturaDW ADD MEMBER [nombre_del_login];  -- reportes
+   --   -- ALTER ROLE Rol_CargaDW  ADD MEMBER [nombre_del_login]; -- ETL
+   --
+   -- El ETL en ASADA lo corre Rol_DBA (db_owner). Rol_Operador tiene DENY
+   -- sobre el orquestador, el reintento y los sp_ETL_*. React no se toca.

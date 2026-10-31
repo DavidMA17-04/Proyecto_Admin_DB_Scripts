@@ -37,9 +37,9 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        INSERT INTO dbo.Incidencia (id_medidor, id_tipo_incidencia, fecha_incidente, descripcion, ubicacion, prioridad)
+        INSERT INTO dbo.Incidencia (id_medidor, id_tipo_incidencia, fecha_incidente, descripcion, ubicacion, prioridad, fecha_modificacion)
         VALUES (@id_medidor, @id_tipo_incidencia, ISNULL(@fecha_incidente, GETDATE()), @descripcion, @ubicacion,
-                dbo.fn_ClasificarIncidencia(@descripcion, @id_tipo_incidencia));
+                dbo.fn_ClasificarIncidencia(@descripcion, @id_tipo_incidencia), GETDATE());
 
         SET @id_incidencia = SCOPE_IDENTITY();
 
