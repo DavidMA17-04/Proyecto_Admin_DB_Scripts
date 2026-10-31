@@ -205,6 +205,7 @@ GRANT EXECUTE ON dbo.sp_EmpleadoMantenimiento            TO Rol_Fontanero;
 GRANT EXECUTE ON dbo.sp_ConsultarHistorialMantenimiento  TO Rol_Fontanero;
 GRANT EXECUTE ON dbo.sp_ConsultarTiposTrabajo            TO Rol_Fontanero;
 GRANT SELECT  ON dbo.vw_MedidorNoLeido                   TO Rol_Fontanero;
+GRANT SELECT  ON dbo.vw_MedidoresParaLectura             TO Rol_Fontanero;
 GRANT SELECT  ON dbo.vw_MantenimientosPendientes         TO Rol_Fontanero;
 GO
 
@@ -227,6 +228,7 @@ GRANT EXECUTE ON dbo.sp_ConsultarIncidencias       TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_SimularMontoConTarifa      TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_ConciliarOrigenDW          TO Rol_JuntaDirectiva;
 GRANT SELECT  ON dbo.vw_UsuariosMorosos            TO Rol_JuntaDirectiva;
+GRANT SELECT  ON dbo.vw_ResumenCartera             TO Rol_JuntaDirectiva;
 GRANT SELECT  ON dbo.vw_ResumenConsumoMensual      TO Rol_JuntaDirectiva;
 GRANT SELECT  ON dbo.vw_PagosPorMetodo             TO Rol_JuntaDirectiva;
 GRANT SELECT  ON dbo.vw_IncidentesAbiertos         TO Rol_JuntaDirectiva;
