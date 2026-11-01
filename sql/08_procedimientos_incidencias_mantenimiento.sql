@@ -1,16 +1,14 @@
-﻿SET ANSI_NULLS ON;
+SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 08: Procedimientos - Incidencias, mantenimientos y empleados (R4)
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 08: Procedimientos - Incidencias, mantenimientos y empleados 
+  --------------------------------------------------------------------*/
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.7 Incidencia
-   --------------------------------------------------------------------- */
--- Registra una incidencia. Si viene de una alerta de consumo (R9), la vincula.
+   --Incidencia
+-- Registra una incidencia. Si viene de una alerta de consumo, la vincula.
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarIncidente
     @id_medidor          int,
     @id_tipo_incidencia  int,
@@ -39,9 +37,9 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
-        INSERT INTO dbo.Incidencia (id_medidor, id_tipo_incidencia, fecha_incidente, descripcion, ubicacion, prioridad)
+        INSERT INTO dbo.Incidencia (id_medidor, id_tipo_incidencia, fecha_incidente, descripcion, ubicacion, prioridad, fecha_modificacion)
         VALUES (@id_medidor, @id_tipo_incidencia, ISNULL(@fecha_incidente, GETDATE()), @descripcion, @ubicacion,
-                dbo.fn_ClasificarIncidencia(@descripcion, @id_tipo_incidencia));
+                dbo.fn_ClasificarIncidencia(@descripcion, @id_tipo_incidencia), GETDATE());
 
         SET @id_incidencia = SCOPE_IDENTITY();
 
@@ -161,7 +159,7 @@ BEGIN
 END;
 GO
 
--- R4-01: búsqueda de incidencias por estado, tipo, conexión o rango de fechas.
+--búsqueda de incidencias por estado, tipo, conexión o rango de fechas.
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarIncidencias
     @estado              varchar(20) = NULL,
     @id_tipo_incidencia  int         = NULL,
@@ -175,7 +173,9 @@ BEGIN
     SELECT i.id_incidencia, ti.nombre_incidencia AS tipo, i.prioridad, i.estado,
            i.fecha_incidente, i.descripcion, i.ubicacion,
            m.numero_serie AS medidor, m.id_conexion,
-           dbo.fn_CalcularTiempoResolucion(i.id_incidencia) AS horas_resolucion
+           dbo.fn_CalcularTiempoResolucion(i.id_incidencia) AS horas_resolucion,
+           dbo.fn_ObtenerSLAPrioridad(i.prioridad) AS sla_horas,
+           dbo.fn_VerificarCumplimientoSLA(i.id_incidencia) AS estado_sla
     FROM dbo.Incidencia i
     JOIN dbo.Tipo_Incidencia ti ON ti.id_tipo_incidencia = i.id_tipo_incidencia
     JOIN dbo.Medidor m          ON m.id_medidor = i.id_medidor
@@ -188,9 +188,167 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.30 Historial de incidencia
-   --------------------------------------------------------------------- */
+-- Escala o ajusta la prioridad de una incidencia no resuelta y deja traza en Historial_Incidencia.
+CREATE OR ALTER PROCEDURE dbo.sp_EscalarPrioridadIncidencia
+    @id_incidencia    int,
+    @nueva_prioridad  varchar(10)   = NULL,
+    @observacion      varchar(4000)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DECLARE @estado varchar(20), @prioridad_actual varchar(10), @nota varchar(4000);
+
+    SELECT @estado = estado, @prioridad_actual = prioridad
+    FROM dbo.Incidencia
+    WHERE id_incidencia = @id_incidencia;
+
+    IF @estado IS NULL
+        THROW 50405, 'La incidencia indicada no existe.', 1;
+
+    IF @estado = 'Resuelta'
+        THROW 50409, 'La incidencia ya está resuelta.', 1;
+
+    IF NULLIF(LTRIM(@observacion), '') IS NULL
+        THROW 50427, 'Debe indicar el motivo o la observación del cambio de prioridad.', 1;
+
+    IF @nueva_prioridad IS NULL
+        SET @nueva_prioridad = CASE @prioridad_actual
+            WHEN 'Baja'  THEN 'Media'
+            WHEN 'Media' THEN 'Alta'
+            ELSE 'Alta'
+        END;
+
+    IF @nueva_prioridad NOT IN ('Alta', 'Media', 'Baja')
+        THROW 50426, 'Prioridad no válida. Use: Alta, Media o Baja.', 1;
+
+    IF @nueva_prioridad = @prioridad_actual
+        THROW 50428, 'La incidencia ya tiene asignada esa prioridad.', 1;
+
+    SET @nota = CONCAT('Prioridad cambiada [', ISNULL(@prioridad_actual, 'N/A'), ' -> ', @nueva_prioridad, ']: ', @observacion);
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        UPDATE dbo.Incidencia
+        SET prioridad = @nueva_prioridad,
+            fecha_modificacion = GETDATE()
+        WHERE id_incidencia = @id_incidencia;
+
+        INSERT INTO dbo.Historial_Incidencia (id_incidencia, id_empleado, estado_anterior, estado_actual, fecha_evento, observacion)
+        VALUES (@id_incidencia, dbo.fn_EmpleadoActual(), @estado, @estado, GETDATE(), @nota);
+
+        INSERT INTO dbo.Bitacora (id_usuario_sistema, accion, tabla_afectada, descripcion)
+        VALUES (dbo.fn_UsuarioActual(), 'UPDATE', 'Incidencia',
+                CONCAT('Incidencia ', @id_incidencia, ': ', @nota));
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
+END;
+GO
+
+-- Reabre una incidencia marcada como 'Resuelta' cuando el problema persiste en campo.
+CREATE OR ALTER PROCEDURE dbo.sp_ReabrirIncidencia
+    @id_incidencia int,
+    @motivo        varchar(4000)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DECLARE @estado varchar(20), @prioridad varchar(10), @id_conexion int;
+
+    SELECT @estado = i.estado, @prioridad = i.prioridad, @id_conexion = m.id_conexion
+    FROM dbo.Incidencia i
+    JOIN dbo.Medidor m ON m.id_medidor = i.id_medidor
+    WHERE i.id_incidencia = @id_incidencia;
+
+    IF @estado IS NULL
+        THROW 50405, 'La incidencia indicada no existe.', 1;
+
+    IF @estado <> 'Resuelta'
+        THROW 50429, 'Solo se pueden reabrir incidencias que estén en estado Resuelta.', 1;
+
+    IF NULLIF(LTRIM(@motivo), '') IS NULL
+        THROW 50430, 'Debe indicar el motivo para reabrir la incidencia.', 1;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        DECLARE @obs varchar(4000) = CONCAT('Incidencia reabierta: ', @motivo);
+        EXEC dbo.sp_CambiarEstadoIncidencia
+            @id_incidencia = @id_incidencia,
+            @nuevo_estado  = 'Abierta',
+            @observacion   = @obs;
+
+        -- Si la conexión presenta reincidencia reciente y no tenía prioridad Alta, se eleva a Alta.
+        IF @prioridad <> 'Alta' AND dbo.fn_ContarIncidenciasReincidentes(@id_conexion, 90) >= 2
+        BEGIN
+            UPDATE dbo.Incidencia
+            SET prioridad = 'Alta', fecha_modificacion = GETDATE()
+            WHERE id_incidencia = @id_incidencia;
+        END
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
+END;
+GO
+
+-- Asigna una incidencia automáticamente al fontanero activo con menor carga de trabajo
+-- (fn_ContarCargaActivaEmpleado) y mayor índice de eficiencia (fn_ObtenerIndiceEficienciaEmpleado).
+CREATE OR ALTER PROCEDURE dbo.sp_AsignarMantenimientoAutomatico
+    @id_incidencia         int,
+    @id_tipo_trabajo       int,
+    @descripcion           varchar(100) = NULL,
+    @fecha_inicio          datetime     = NULL,
+    @id_empleado_asignado  int          = NULL OUTPUT,
+    @id_mantenimiento      int          = NULL OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    SELECT TOP (1) @id_empleado_asignado = e.id_empleado
+    FROM dbo.Empleado e
+    LEFT JOIN dbo.Usuario_Sistema u ON u.id_empleado = e.id_empleado
+    LEFT JOIN dbo.Rol r             ON r.id_rol = u.id_rol
+    WHERE e.activo = 1
+      AND (e.puesto LIKE '%Fontaner%' OR r.nombre_rol = 'Fontanero')
+    ORDER BY dbo.fn_ContarCargaActivaEmpleado(e.id_empleado) ASC,
+             dbo.fn_ObtenerIndiceEficienciaEmpleado(e.id_empleado) DESC,
+             e.id_empleado ASC;
+
+    -- Si no hay un empleado con puesto/rol de Fontanero, se toma el empleado activo con menor carga.
+    IF @id_empleado_asignado IS NULL
+        SELECT TOP (1) @id_empleado_asignado = e.id_empleado
+        FROM dbo.Empleado e
+        WHERE e.activo = 1
+        ORDER BY dbo.fn_ContarCargaActivaEmpleado(e.id_empleado) ASC,
+                 e.id_empleado ASC;
+
+    IF @id_empleado_asignado IS NULL
+        THROW 50431, 'No hay empleados activos disponibles para asignar el mantenimiento.', 1;
+
+    EXEC dbo.sp_AsignarMantenimiento
+        @id_incidencia    = @id_incidencia,
+        @id_empleado      = @id_empleado_asignado,
+        @id_tipo_trabajo  = @id_tipo_trabajo,
+        @descripcion      = @descripcion,
+        @fecha_inicio     = @fecha_inicio,
+        @id_mantenimiento = @id_mantenimiento OUTPUT;
+END;
+GO
+
+   --Historial de incidencia
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarHistorialIncidencia
     @id_incidencia int
 AS
@@ -206,9 +364,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.19 Mantenimiento
-   --------------------------------------------------------------------- */
+   --Mantenimiento
 -- Crea un mantenimiento a partir de una incidencia o de forma directa (preventivo).
 CREATE OR ALTER PROCEDURE dbo.sp_ProgramarMantenimiento
     @id_empleado       int,
@@ -377,9 +533,226 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.20 Historial de mantenimiento
-   --------------------------------------------------------------------- */
+-- Reasigna un mantenimiento activo ('Programado' o 'En proceso') a otro empleado activo
+-- y deja constancia en Historial_Mantenimiento y Bitacora.
+CREATE OR ALTER PROCEDURE dbo.sp_ReasignarMantenimiento
+    @id_mantenimiento   int,
+    @id_nuevo_empleado  int,
+    @motivo             varchar(4000)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    DECLARE @estado varchar(20), @id_empleado_anterior int, @nombre_anterior varchar(60), @nombre_nuevo varchar(60), @anotacion varchar(4000);
+
+    SELECT @estado = estado, @id_empleado_anterior = id_empleado
+    FROM dbo.Mantenimiento
+    WHERE id_mantenimiento = @id_mantenimiento;
+
+    IF @estado IS NULL
+        THROW 50414, 'El mantenimiento indicado no existe.', 1;
+
+    IF @estado IN ('Finalizado', 'Cancelado')
+        THROW 50415, 'El mantenimiento ya está cerrado y no puede reasignarse.', 1;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Empleado WHERE id_empleado = @id_nuevo_empleado AND activo = 1)
+        THROW 50410, 'El nuevo empleado no existe o está inactivo.', 1;
+
+    IF @id_empleado_anterior = @id_nuevo_empleado
+        THROW 50424, 'El mantenimiento ya está asignado a ese empleado.', 1;
+
+    IF NULLIF(LTRIM(@motivo), '') IS NULL
+        THROW 50425, 'Debe indicar el motivo de la reasignación.', 1;
+
+    SELECT @nombre_anterior = CONCAT_WS(' ', nombre_empleado, apellido1_empleado) FROM dbo.Empleado WHERE id_empleado = @id_empleado_anterior;
+    SELECT @nombre_nuevo    = CONCAT_WS(' ', nombre_empleado, apellido1_empleado) FROM dbo.Empleado WHERE id_empleado = @id_nuevo_empleado;
+    SET @anotacion = CONCAT('Reasignado de ', @nombre_anterior, ' a ', @nombre_nuevo, '. Motivo: ', @motivo);
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        UPDATE dbo.Mantenimiento
+        SET id_empleado = @id_nuevo_empleado,
+            fecha_modificacion = GETDATE()
+        WHERE id_mantenimiento = @id_mantenimiento;
+
+        INSERT INTO dbo.Historial_Mantenimiento (id_mantenimiento, id_empleado, estado_anterior, estado_actual, fecha_evento, anotacion)
+        VALUES (@id_mantenimiento, ISNULL(dbo.fn_EmpleadoActual(), @id_nuevo_empleado), @estado, @estado, GETDATE(), @anotacion);
+
+        INSERT INTO dbo.Bitacora (id_usuario_sistema, accion, tabla_afectada, descripcion)
+        VALUES (dbo.fn_UsuarioActual(), 'UPDATE', 'Mantenimiento',
+                CONCAT('Mantenimiento ', @id_mantenimiento, ': ', @anotacion));
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
+END;
+GO
+
+-- Programa mantenimientos preventivos masivos para conexiones activas sin órdenes pendientes
+-- que superen @dias_sin_mantenimiento desde su último mantenimiento o tengan reincidencia.
+CREATE OR ALTER PROCEDURE dbo.sp_ProgramarMantenimientoPreventivoMasivo
+    @id_tipo_trabajo         int,
+    @id_empleado             int          = NULL,
+    @dias_sin_mantenimiento  int          = 180,
+    @descripcion             varchar(100) = NULL,
+    @fecha_inicio            datetime     = NULL,
+    @cantidad_programados    int          = NULL OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Tipo_Trabajo WHERE id_tipo_trabajo = @id_tipo_trabajo AND activo = 1)
+        THROW 50411, 'El tipo de trabajo no existe o está inactivo.', 1;
+
+    IF @id_empleado IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Empleado WHERE id_empleado = @id_empleado AND activo = 1)
+        THROW 50410, 'El empleado indicado no existe o está inactivo.', 1;
+
+    IF @dias_sin_mantenimiento <= 0
+        THROW 50432, 'Los días sin mantenimiento deben ser mayores que cero.', 1;
+
+    SET @descripcion = ISNULL(NULLIF(LTRIM(@descripcion), ''), CONCAT('Mantenimiento preventivo programado (> ', @dias_sin_mantenimiento, ' días)'));
+    SET @fecha_inicio = ISNULL(@fecha_inicio, GETDATE());
+
+    DECLARE @candidatas TABLE (id_conexion int PRIMARY KEY);
+    DECLARE @creados TABLE (id_mantenimiento int, id_conexion int, id_empleado int, descripcion varchar(100));
+
+    INSERT INTO @candidatas (id_conexion)
+    SELECT c.id_conexion
+    FROM dbo.Conexion c
+    CROSS APPLY dbo.fn_ResumenOperativoConexion(c.id_conexion) r
+    WHERE c.estado = 'Activa'
+      AND r.mantenimientos_pendientes = 0
+      AND (
+          r.ultimo_mantenimiento IS NULL
+          OR DATEDIFF(DAY, r.ultimo_mantenimiento, GETDATE()) >= @dias_sin_mantenimiento
+          OR r.incidencias_90_dias >= 2
+      );
+
+    DECLARE @c int, @emp int, @id_mant int;
+    DECLARE cur CURSOR LOCAL FAST_FORWARD FOR SELECT id_conexion FROM @candidatas ORDER BY id_conexion;
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        OPEN cur;
+        FETCH NEXT FROM cur INTO @c;
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            SET @emp = @id_empleado;
+            IF @emp IS NULL
+                SELECT TOP (1) @emp = e.id_empleado
+                FROM dbo.Empleado e
+                WHERE e.activo = 1
+                ORDER BY dbo.fn_ContarCargaActivaEmpleado(e.id_empleado) ASC,
+                         dbo.fn_ObtenerIndiceEficienciaEmpleado(e.id_empleado) DESC,
+                         e.id_empleado ASC;
+
+            IF @emp IS NULL
+                THROW 50431, 'No hay empleados activos disponibles para programar el plan preventivo.', 1;
+
+            EXEC dbo.sp_ProgramarMantenimiento
+                @id_empleado      = @emp,
+                @id_tipo_trabajo  = @id_tipo_trabajo,
+                @id_conexion      = @c,
+                @descripcion      = @descripcion,
+                @fecha_inicio     = @fecha_inicio,
+                @id_mantenimiento = @id_mant OUTPUT;
+
+            INSERT INTO @creados VALUES (@id_mant, @c, @emp, @descripcion);
+            FETCH NEXT FROM cur INTO @c;
+        END
+        CLOSE cur;
+        DEALLOCATE cur;
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK;
+        THROW;
+    END CATCH
+
+    SELECT @cantidad_programados = COUNT(*) FROM @creados;
+
+    SELECT cr.id_mantenimiento, cr.id_conexion, c.ubicacion,
+           CONCAT_WS(' ', e.nombre_empleado, e.apellido1_empleado) AS responsable,
+           cr.descripcion, @fecha_inicio AS fecha_inicio
+    FROM @creados cr
+    JOIN dbo.Conexion c ON c.id_conexion = cr.id_conexion
+    JOIN dbo.Empleado e ON e.id_empleado = cr.id_empleado
+    ORDER BY cr.id_mantenimiento;
+END;
+GO
+
+-- Diagnóstico operativo integral de incidencias, SLA, carga de trabajo por empleado
+-- y conexiones con reincidencia o mantenimientos pendientes.
+CREATE OR ALTER PROCEDURE dbo.sp_ResumenOperativoMantenimientos
+    @desde date = NULL,
+    @hasta date = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- 1. Cumplimiento de SLA por prioridad de incidencia
+    SELECT
+        i.prioridad,
+        dbo.fn_ObtenerSLAPrioridad(i.prioridad) AS sla_objetivo_horas,
+        COUNT(*) AS total_incidencias,
+        SUM(CASE WHEN i.estado <> 'Resuelta' THEN 1 ELSE 0 END) AS abiertas_o_en_proceso,
+        SUM(CASE WHEN i.estado = 'Resuelta' THEN 1 ELSE 0 END) AS resueltas,
+        SUM(CASE WHEN dbo.fn_VerificarCumplimientoSLA(i.id_incidencia) = 'En tiempo' THEN 1 ELSE 0 END) AS en_tiempo,
+        SUM(CASE WHEN dbo.fn_VerificarCumplimientoSLA(i.id_incidencia) = 'Por vencer' THEN 1 ELSE 0 END) AS por_vencer,
+        SUM(CASE WHEN dbo.fn_VerificarCumplimientoSLA(i.id_incidencia) = 'Vencida' THEN 1 ELSE 0 END) AS vencidas_sla,
+        CAST(AVG(CAST(dbo.fn_CalcularTiempoResolucion(i.id_incidencia) AS decimal(10,2))) AS decimal(10,2)) AS horas_promedio_resolucion
+    FROM dbo.Incidencia i
+    WHERE (@desde IS NULL OR i.fecha_incidente >= @desde)
+      AND (@hasta IS NULL OR i.fecha_incidente < DATEADD(DAY, 1, @hasta))
+    GROUP BY i.prioridad
+    ORDER BY CASE i.prioridad WHEN 'Alta' THEN 1 WHEN 'Media' THEN 2 ELSE 3 END;
+
+    -- 2. Carga activa y eficiencia operativa por empleado
+    SELECT
+        e.id_empleado,
+        CONCAT_WS(' ', e.nombre_empleado, e.apellido1_empleado, e.apellido2_empleado) AS empleado,
+        e.puesto,
+        dbo.fn_ContarCargaActivaEmpleado(e.id_empleado) AS carga_activa,
+        SUM(CASE WHEN mt.estado = 'Finalizado' THEN 1 ELSE 0 END) AS mantenimientos_finalizados,
+        CAST(AVG(CAST(dbo.fn_CalcularDuracionMantenimiento(mt.id_mantenimiento) AS decimal(10,2))) AS decimal(10,2)) AS horas_promedio_trabajo,
+        dbo.fn_ObtenerIndiceEficienciaEmpleado(e.id_empleado) AS porcentaje_eficiencia
+    FROM dbo.Empleado e
+    LEFT JOIN dbo.Mantenimiento mt ON mt.id_empleado = e.id_empleado
+        AND (@desde IS NULL OR mt.fecha_inicio >= @desde)
+        AND (@hasta IS NULL OR mt.fecha_inicio < DATEADD(DAY, 1, @hasta))
+    WHERE e.activo = 1
+    GROUP BY e.id_empleado, e.nombre_empleado, e.apellido1_empleado, e.apellido2_empleado, e.puesto
+    ORDER BY carga_activa DESC, porcentaje_eficiencia DESC;
+
+    -- 3. Estado operativo por conexión (usando fn_ResumenOperativoConexion)
+    SELECT
+        r.id_conexion,
+        r.abonado,
+        r.ubicacion,
+        r.estado_conexion,
+        r.total_incidencias,
+        r.incidencias_abiertas,
+        r.incidencias_90_dias,
+        r.total_mantenimientos,
+        r.mantenimientos_pendientes,
+        r.ultimo_mantenimiento,
+        CAST(r.horas_promedio_resolucion AS decimal(10,2)) AS horas_promedio_resolucion
+    FROM dbo.Conexion c
+    CROSS APPLY dbo.fn_ResumenOperativoConexion(c.id_conexion) r
+    WHERE r.total_incidencias > 0 OR r.total_mantenimientos > 0
+    ORDER BY r.incidencias_abiertas DESC, r.incidencias_90_dias DESC, r.mantenimientos_pendientes DESC;
+END;
+GO
+
+   --Historial de mantenimiento
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarHistorialMantenimiento
     @id_mantenimiento int
 AS
@@ -395,9 +768,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.8 Empleado
-   --------------------------------------------------------------------- */
+   --Empleado
 CREATE OR ALTER PROCEDURE dbo.sp_AgregarEmpleado
     @cedula              varchar(20),
     @nombre_empleado     varchar(20),

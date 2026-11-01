@@ -1,19 +1,15 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
+/* ---------------------------------------------------------------------
    Script 16: Datos iniciales (catálogos, roles, permisos, políticas)
-   Antes de ejecutar, revise la ruta de respaldos (@ruta_respaldos):
-   debe existir y la cuenta de servicio de SQL Server debe poder escribir en ella.
-   ===================================================================== */
+  --------------------------------------------------------------------- */
 USE ASADA;
 GO
 SET NOCOUNT ON;
 GO
 
-/* ---------------------------------------------------------------------
-   Tarifas (montos de referencia en colones; ajustar a los aprobados por la ARESEP)
-   --------------------------------------------------------------------- */
+   --Tarifas 
 INSERT INTO dbo.Tipo_Tarifa (nombre_tarifa) VALUES
     ('Residencial'), ('Comercial'), ('Institucional'), ('Preferencial');
 
@@ -24,9 +20,7 @@ SELECT id_tipo_tarifa,
 FROM dbo.Tipo_Tarifa;
 GO
 
-/* ---------------------------------------------------------------------
-   Catálogos
-   --------------------------------------------------------------------- */
+   --Catálogos
 INSERT INTO dbo.Metodo_Pago (nombre_metodo) VALUES
     ('Efectivo'), ('Transferencia bancaria'), ('Tarjeta'), ('SINPE Móvil');
 
@@ -38,6 +32,21 @@ INSERT INTO dbo.Tipo_Trabajo (nombre_trabajo) VALUES
 
 INSERT INTO dbo.Nivel_alerta_Consumo (nombre_nivel) VALUES ('Bajo'), ('Medio'), ('Alto');
 
+   --Configuración de morosidad
+
+-- Tramos de recargo por días de atraso (la Junta Directiva puede ajustarlos).
+INSERT INTO dbo.Tramo_Mora (dias_desde, dias_hasta, porcentaje) VALUES
+    (1,  30,   2.00),
+    (31, 60,   4.00),
+    (61, NULL, 6.00);
+
+-- Límites para suspender una conexión y plazo de pago.
+INSERT INTO dbo.Parametro_Mora (nombre, valor, descripcion) VALUES
+    ('dias_mora_suspension',    90, 'Días de atraso a partir de los cuales se suspende la conexión'),
+    ('saldo_minimo_suspension',  0, 'Monto vencido mínimo (colones) para suspender una conexión'),
+    ('plazo_pago_dias',         15, 'Días de plazo para pagar una factura desde su emisión');
+GO
+
 INSERT INTO dbo.Regla_consumo (id_nivel_alerta, nombre_regla, porcentaje_variacion, meses_promedio, consumo_minimo, descripcion)
 SELECT n.id_nivel_alerta, r.nombre, r.porcentaje, 3, r.minimo, r.descripcion
 FROM (VALUES
@@ -48,9 +57,7 @@ FROM (VALUES
 JOIN dbo.Nivel_alerta_Consumo n ON n.nombre_nivel = r.nivel;
 GO
 
-/* ---------------------------------------------------------------------
-   Respaldos
-   --------------------------------------------------------------------- */
+   --Respaldos
 INSERT INTO dbo.Tipo_Respaldo (nombre_respaldo) VALUES ('Completo'), ('Diferencial'), ('Log');
 GO
 
@@ -66,10 +73,7 @@ FROM (VALUES
 JOIN dbo.Tipo_Respaldo t ON t.nombre_respaldo = p.tipo;
 GO
 
-/* ---------------------------------------------------------------------
-   Roles, módulos y permisos de la aplicación (sección 7, matriz de acceso)
-   El Abonado no tiene credenciales, por eso no tiene rol.
-   --------------------------------------------------------------------- */
+   --Roles, módulos y permisos de la aplicación 
 INSERT INTO dbo.Rol (nombre_rol) VALUES
     ('Junta Directiva'), ('Administrador del Sistema'), ('Fontanero'), ('Administrador de BD');
 
@@ -128,7 +132,7 @@ FROM (VALUES
 JOIN dbo.Rol r     ON r.nombre_rol = x.rol
 JOIN dbo.Permiso p ON p.nombre_permiso = x.permiso;
 
--- Administrador del Sistema: acceso total a los módulos funcionales (1 a 5).
+-- Administrador del Sistema: acceso total a los módulos funcionales
 INSERT INTO dbo.Rol_permiso (id_rol, id_permiso)
 SELECT r.id_rol, p.id_permiso
 FROM dbo.Rol r
@@ -138,10 +142,7 @@ WHERE r.nombre_rol = 'Administrador del Sistema'
   AND m.nombre_modulo <> 'Administración de BD y Data Warehouse';
 GO
 
-/* ---------------------------------------------------------------------
-   Usuarios iniciales. CAMBIAR LAS CONTRASEÑAS después del primer ingreso
-   (sp_CambiarContrasenaUsuario).
-   --------------------------------------------------------------------- */
+  -- Usuarios iniciales. CAMBIAR LAS CONTRASEÑAS después del primer ingreso
 DECLARE @id_empleado int, @id_rol int;
 
 EXEC dbo.sp_AgregarEmpleado
@@ -159,10 +160,7 @@ EXEC dbo.sp_CrearUsuarioSistema @id_empleado = @id_empleado, @id_rol = @id_rol,
     @nombre_usuario = 'dba', @contrasena = N'AsadaDBA#2026';
 GO
 
-/* ---------------------------------------------------------------------
-   Usuarios de campo y de la Junta Directiva. Se pueden volver a ejecutar
-   sobre una base ya instalada: solo crean lo que falta.
-   --------------------------------------------------------------------- */
+   --Usuarios de campo y de la Junta Directiva
 DECLARE @id_empleado int, @id_rol int;
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Usuario_Sistema WHERE nombre_usuario = 'fontanero')

@@ -1,16 +1,13 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 05: Procedimientos - Abonados, conexiones y medidores (R1)
-   Convención de errores: THROW 5xxxx con mensaje en español.
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 05: Procedimientos - Abonados, conexiones y medidores 
+   --------------------------------------------------------------------*/
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.1 Abonado
-   --------------------------------------------------------------------- */
+   -- Abonado
 -- Registra un abonado. Si el tipo de identificación es JURIDICA se guarda en
 -- Abonado_Juridico; cualquier otro tipo (FISICA, DIMEX, NITE, PASAPORTE) va a Abonado_Fisico.
 -- Para jurídicos, @nombre es la razón social.
@@ -118,7 +115,7 @@ BEGIN
 END;
 GO
 
--- Actualiza datos de contacto y dirección (los parámetros NULL no se modifican).
+-- Actualiza datos de contacto y dirección 
 CREATE OR ALTER PROCEDURE dbo.sp_ModificarAbonado
     @tipo_abonado             varchar(10),
     @id_abonado               int,
@@ -176,7 +173,7 @@ BEGIN
 END;
 GO
 
--- Baja lógica del abonado (R1-01 punto 4): no puede tener conexiones activas ni saldo pendiente.
+--no puede tener conexiones activas ni saldo pendiente
 CREATE OR ALTER PROCEDURE dbo.sp_DesactivarAbonado
     @tipo_abonado varchar(10),
     @id_abonado   int
@@ -253,9 +250,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.2 Conexión
-   --------------------------------------------------------------------- */
+   --Conexión
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarConexion
     @tipo_abonado varchar(10),
     @id_abonado   int,
@@ -296,7 +291,7 @@ BEGIN
 END;
 GO
 
--- Cambia el estado de una conexión. El motivo queda en la bitácora (trg_AuditarConexion).
+-- Cambia el estado de una conexión. El motivo queda en la bitácora
 CREATE OR ALTER PROCEDURE dbo.sp_CambiarEstadoConexion
     @id_conexion  int,
     @nuevo_estado varchar(25),
@@ -331,7 +326,7 @@ BEGIN
 END;
 GO
 
--- CU-2.5: asigna o cambia la tarifa de una conexión.
+--asigna o cambia la tarifa de una conexión.
 CREATE OR ALTER PROCEDURE dbo.sp_AsignarTarifaConexion
     @id_conexion int,
     @id_tarifa   int,
@@ -377,9 +372,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.3 Medidor
-   --------------------------------------------------------------------- */
+   --Medidor
 CREATE OR ALTER PROCEDURE dbo.sp_MedidorExiste
     @id_conexion int,
     @existe      bit OUTPUT,
@@ -469,7 +462,7 @@ BEGIN
 END;
 GO
 
--- R1-03: búsqueda de medidores por número de serie o conexión.
+--búsqueda de medidores por número de serie o conexión.
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarMedidores
     @numero_serie varchar(20) = NULL,
     @id_conexion  int         = NULL,

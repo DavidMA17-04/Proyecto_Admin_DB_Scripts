@@ -1,22 +1,16 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 12: Procedimientos - Respaldos y recuperación Point-in-Time (RA2, R10)
-   Requisitos:
-     - La base ASADA debe estar en modelo de recuperación FULL (script 00).
-     - La cuenta de servicio de SQL Server debe poder escribir en la ruta
-       de cada política (Politica_Respaldo.ruta_destino).
-     - BACKUP y RESTORE no pueden ejecutarse dentro de una transacción.
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 12: Procedimientos - Respaldos y recuperación Point-in-Time 
+   --------------------------------------------------------------------- */
+
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   Políticas
-   --------------------------------------------------------------------- */
+   --Políticas
 -- Registra o modifica una política. Si se cambian frecuencia u hora, hay que
--- ajustar también la programación del job correspondiente (script 17).
+-- ajustar también la programación del job correspondiente.
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarPoliticaRespaldo
     @id_tipo_respaldo  int,
     @nombre_politica   varchar(100),
@@ -62,9 +56,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Registro de resultados
-   --------------------------------------------------------------------- */
+   --Registro de resultados
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarResultadoRespaldo
     @id_politica    int,
     @fecha_inicio   datetime,
@@ -119,9 +111,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Ejecución y verificación
-   --------------------------------------------------------------------- */
+   --Ejecución y verificación
 -- Ejecuta el respaldo de una política (completo, diferencial o log) y lo registra.
 -- Lo invocan los jobs Job_RespaldoCompleto, Job_RespaldoDiferencial y Job_RespaldoLogTransacciones.
 CREATE OR ALTER PROCEDURE dbo.sp_EjecutarRespaldo
@@ -240,15 +230,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Restauración a un punto en el tiempo (STOPAT)
-   --------------------------------------------------------------------- */
--- Arma la cadena completo + diferencial + logs a partir de Historial_Respaldo y
--- de los LSN que guarda msdb, y restaura en @base_destino hasta @punto_recuperacion.
---
--- Por seguridad se restaura en una base distinta (por defecto ASADA_Restaurada):
--- así se puede revisar la información antes de reemplazar la base productiva.
--- Con @solo_generar_script = 1 solo devuelve el script, sin ejecutarlo.
+   --Restauración a un punto en el tiempo (STOPAT)
 CREATE OR ALTER PROCEDURE dbo.sp_RestaurarPuntoEnTiempo
     @punto_recuperacion   datetime,
     @motivo               varchar(250),
@@ -378,9 +360,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Consultas
-   --------------------------------------------------------------------- */
+   --Consultas
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarHistorialRespaldos
     @id_politica  int         = NULL,
     @desde        datetime    = NULL,

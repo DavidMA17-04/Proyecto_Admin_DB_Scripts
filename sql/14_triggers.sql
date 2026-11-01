@@ -1,20 +1,13 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
+/* ---------------------------------------------------------------------
    Script 14: Triggers
-   - El usuario que hace el cambio se toma de SESSION_CONTEXT
-     (dbo.fn_UsuarioActual / dbo.fn_EmpleadoActual), que llena sp_IniciarSesion.
-   - El comentario o motivo opcional que envían los procedimientos se lee de
-     SESSION_CONTEXT(N'comentario').
-   - Todos los triggers manejan inserciones o actualizaciones de varias filas.
-   ===================================================================== */
+    --------------------------------------------------------------------- */
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.1 Abonado: alta, modificación o baja
-   --------------------------------------------------------------------- */
+   --Abonado: alta, modificación o baja
 CREATE OR ALTER TRIGGER dbo.trg_AuditoriaUsuario
 ON dbo.Abonado_Fisico
 AFTER INSERT, UPDATE, DELETE
@@ -74,9 +67,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.2 Conexión: alta, cambios de estado y de tarifa
-   --------------------------------------------------------------------- */
+   --Conexión: alta, cambios de estado y de tarifa
 CREATE OR ALTER TRIGGER dbo.trg_AuditarConexion
 ON dbo.Conexion
 AFTER INSERT, UPDATE
@@ -106,9 +97,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.3 Medidor
-   --------------------------------------------------------------------- */
+   --Medidor
 -- Registra el retiro (o daño/sustitución) del medidor sin borrar el registro.
 CREATE OR ALTER TRIGGER dbo.trg_RetiroMedidor
 ON dbo.Medidor
@@ -150,9 +139,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.4 Lectura
-   --------------------------------------------------------------------- */
+   --Lectura
 -- Mantiene en Medidor la última lectura registrada.
 CREATE OR ALTER TRIGGER dbo.trg_ActualizarUltimaLectura
 ON dbo.Lectura
@@ -197,7 +184,7 @@ BEGIN
 END;
 GO
 
--- R2-01: las correcciones de lecturas quedan en la bitácora.
+--las correcciones de lecturas quedan en la bitácora.
 CREATE OR ALTER TRIGGER dbo.trg_AuditarLectura
 ON dbo.Lectura
 AFTER UPDATE
@@ -218,9 +205,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.5 Factura
-   --------------------------------------------------------------------- */
+   --Factura
 CREATE OR ALTER TRIGGER dbo.trg_RegistroFactura
 ON dbo.Factura
 AFTER INSERT
@@ -255,9 +240,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.6 Pago
-   --------------------------------------------------------------------- */
+   --Pago
 -- Recalcula el estado de las facturas afectadas por un pago o su anulación:
 -- saldo <= 0 -> Pagada; con saldo y vencida -> Vencida; con saldo y al día -> Pendiente.
 CREATE OR ALTER TRIGGER dbo.trg_ActualizarEstadoFactura
@@ -302,9 +285,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.15 Recargo por mora
-   --------------------------------------------------------------------- */
+   --Recargo por mora
 CREATE OR ALTER TRIGGER dbo.trg_AuditarRecargoMora
 ON dbo.Recargo_mora
 AFTER INSERT, UPDATE
@@ -326,9 +307,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.7 / 12.30 Incidencia
-   --------------------------------------------------------------------- */
+   --Incidencia
 CREATE OR ALTER TRIGGER dbo.trg_IngresarIncidente
 ON dbo.Incidencia
 AFTER INSERT
@@ -377,9 +356,32 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.19 Mantenimiento
-   --------------------------------------------------------------------- */
+-- Marca fecha_modificacion cuando cambian datos de negocio distintos del estado.
+-- El cambio de estado ya sella la fecha en sp_CambiarEstadoIncidencia.
+-- No escribe bitácora ni historial: esos triggers siguen filtrando por estado.
+CREATE OR ALTER TRIGGER dbo.trg_IncidenciaFechaModificacion
+ON dbo.Incidencia
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF TRIGGER_NESTLEVEL() > 1 RETURN;
+
+    UPDATE i
+    SET fecha_modificacion = GETDATE()
+    FROM dbo.Incidencia i
+    JOIN inserted n ON n.id_incidencia = i.id_incidencia
+    JOIN deleted  d ON d.id_incidencia = i.id_incidencia
+    WHERE d.id_medidor          <> n.id_medidor
+       OR d.id_tipo_incidencia  <> n.id_tipo_incidencia
+       OR d.fecha_incidente     <> n.fecha_incidente
+       OR d.descripcion         <> n.descripcion
+       OR ISNULL(d.ubicacion, '') <> ISNULL(n.ubicacion, '')
+       OR ISNULL(d.prioridad, '') <> ISNULL(n.prioridad, '');
+END;
+GO
+
+   --Mantenimiento
 -- Registra en Historial_Mantenimiento la creación y cada cambio de estado.
 CREATE OR ALTER TRIGGER dbo.trg_AuditarMantenimiento
 ON dbo.Mantenimiento
@@ -408,9 +410,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.8 Empleado
-   --------------------------------------------------------------------- */
+   --Empleado
 CREATE OR ALTER TRIGGER dbo.trg_ActualizarEmpleado
 ON dbo.Empleado
 AFTER INSERT, UPDATE
@@ -435,9 +435,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.13 Tarifa: cada cambio de monto va a Historial_Tarifa y a la bitácora
-   --------------------------------------------------------------------- */
+   --Tarifa: cada cambio de monto va a Historial_Tarifa y a la bitácora
 CREATE OR ALTER TRIGGER dbo.trg_AuditarTarifa
 ON dbo.Tarifa
 AFTER INSERT, UPDATE
@@ -466,9 +464,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.11 Alertas y reglas de consumo
-   --------------------------------------------------------------------- */
+   --Alertas y reglas de consumo
 CREATE OR ALTER TRIGGER dbo.trg_AuditarAlertaConsumo
 ON dbo.Alerta_Consumo
 AFTER INSERT, UPDATE
@@ -510,9 +506,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.12 Respaldos
-   --------------------------------------------------------------------- */
+   --Respaldos
 -- Si un respaldo queda como 'Fallido', genera una alerta en la bitácora.
 -- Si quien ejecuta es sysadmin, también la escribe en el log de errores de SQL Server
 -- (lo que permite configurar una alerta de SQL Agent por correo).
@@ -559,9 +553,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.24 / 12.27 Seguridad
-   --------------------------------------------------------------------- */
+   --Seguridad
 -- Nunca se escribe la contraseña ni su hash en la bitácora.
 CREATE OR ALTER TRIGGER dbo.trg_AuditarUsuarioSistema
 ON dbo.Usuario_Sistema
@@ -614,9 +606,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.31 Control ETL
-   --------------------------------------------------------------------- */
+   --Control ETL
 CREATE OR ALTER TRIGGER dbo.trg_AlertarFalloETL
 ON dbo.Control_ETL
 AFTER INSERT, UPDATE

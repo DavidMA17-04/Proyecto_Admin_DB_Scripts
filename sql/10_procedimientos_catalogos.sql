@@ -1,17 +1,13 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
+/* ---------------------------------------------------------------------
    Script 10: Procedimientos - Tarifas y catálogos
-   Los procedimientos "Gestionar" registran cuando el id es NULL y
-   modifican cuando el id viene informado.
-   ===================================================================== */
+  --------------------------------------------------------------------- */
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.13 Tarifa
-   --------------------------------------------------------------------- */
+   --Tarifa
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarTarifa
     @id_tipo_tarifa int,
     @monto_fijo     decimal(10,2),
@@ -139,9 +135,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.14 Tipo de tarifa
-   --------------------------------------------------------------------- */
+   --Tipo de tarifa
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarTipoTarifa
     @nombre_tarifa  varchar(15),
     @activo         bit = 1,
@@ -179,9 +173,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.17 Nivel de alerta de consumo
-   --------------------------------------------------------------------- */
+   --Nivel de alerta de consumo
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarNivelAlerta
     @nombre_nivel    varchar(50),
     @id_nivel_alerta int = NULL OUTPUT
@@ -215,9 +207,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.16 Regla de consumo (consulta). La gestión está en el script 11.
-   --------------------------------------------------------------------- */
+   --Regla de consumo (consulta)
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarReglasConsumo
     @solo_activas bit = 1
 AS
@@ -233,9 +223,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.18 Tipo de trabajo
-   --------------------------------------------------------------------- */
+   --Tipo de trabajo
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarTipoTrabajo
     @nombre_trabajo  varchar(15),
     @activo          bit = 1,
@@ -270,9 +258,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.21 Método de pago
-   --------------------------------------------------------------------- */
+   --Método de pago
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarMetodoPago
     @nombre_metodo  varchar(50),
     @id_metodo_pago int = NULL OUTPUT
@@ -320,9 +306,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.29 Tipo de incidencia
-   --------------------------------------------------------------------- */
+   --Tipo de incidencia
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarTipoIncidencia
     @nombre_incidencia  varchar(20),
     @activo             bit = 1,
@@ -358,9 +342,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.23 Tipo de respaldo
-   --------------------------------------------------------------------- */
+   --Tipo de respaldo
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarTipoRespaldo
     @nombre_respaldo  varchar(15),
     @id_tipo_respaldo int = NULL OUTPUT

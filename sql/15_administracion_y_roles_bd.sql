@@ -1,15 +1,13 @@
-﻿SET ANSI_NULLS ON;
+SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 15: Administración de la BD (RA4) y roles de base de datos (RA1, RA3)
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 15: Administración de la BD (RA4) y roles de base de datos 
+   --------------------------------------------------------------------- */
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.32 Mantenimiento y monitoreo
-   --------------------------------------------------------------------- */
+   --Mantenimiento y monitoreo
 -- Reorganiza (5 % a 30 %) o reconstruye (más de 30 %) los índices fragmentados
 -- y actualiza estadísticas. Con @solo_reporte = 1 solo muestra la fragmentación.
 CREATE OR ALTER PROCEDURE dbo.sp_MantenimientoIndices
@@ -96,7 +94,7 @@ BEGIN
 END;
 GO
 
--- RA4: espacio, consultas más costosas y estado de los respaldos y del ETL.
+-- espacio, consultas más costosas y estado de los respaldos y del ETL.
 CREATE OR ALTER PROCEDURE dbo.sp_MonitorearBD
 AS
 BEGIN
@@ -154,11 +152,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   Roles de base de datos (permisos del motor)
-   La aplicación ejecuta procedimientos; ningún rol operativo recibe permisos
-   directos sobre las tablas (el encadenamiento de propiedad de dbo da el acceso).
-   --------------------------------------------------------------------- */
+   --Roles de base de datos (permisos del motor)
 IF DATABASE_PRINCIPAL_ID('Rol_Operador')         IS NULL CREATE ROLE Rol_Operador;          -- Administrador del Sistema
 IF DATABASE_PRINCIPAL_ID('Rol_Fontanero')        IS NULL CREATE ROLE Rol_Fontanero;         -- Personal de campo
 IF DATABASE_PRINCIPAL_ID('Rol_JuntaDirectiva')   IS NULL CREATE ROLE Rol_JuntaDirectiva;    -- Consulta de reportes
@@ -184,7 +178,16 @@ DENY EXECUTE ON dbo.sp_MantenimientoIndices           TO Rol_Operador;
 DENY EXECUTE ON dbo.sp_VerificarIntegridadBD          TO Rol_Operador;
 DENY EXECUTE ON dbo.sp_EjecutarCargaDW                TO Rol_Operador;
 DENY EXECUTE ON dbo.sp_ReintentarCargaETL             TO Rol_Operador;
--- Los DENY de sp_CargarDatosPrueba y sp_LimpiarDatosPrueba están en el script 18.
+DENY EXECUTE ON dbo.sp_ETL_IniciarControl             TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_FinalizarControl           TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargarDimTiempo            TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargarDimensionesDW        TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaLecturasDW            TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaFacturacionDW         TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaMorosidadDW           TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaMantenimientosDW      TO Rol_Operador;
+DENY EXECUTE ON dbo.sp_ETL_CargaIncidenciasDW         TO Rol_Operador;
+-- Los DENY de sp_CargarDatosPrueba y sp_LimpiarDatosPrueba .
 GO
 
 -- Rol_Fontanero: lecturas, incidencias y sus mantenimientos asignados.
@@ -202,6 +205,7 @@ GRANT EXECUTE ON dbo.sp_EmpleadoMantenimiento            TO Rol_Fontanero;
 GRANT EXECUTE ON dbo.sp_ConsultarHistorialMantenimiento  TO Rol_Fontanero;
 GRANT EXECUTE ON dbo.sp_ConsultarTiposTrabajo            TO Rol_Fontanero;
 GRANT SELECT  ON dbo.vw_MedidorNoLeido                   TO Rol_Fontanero;
+GRANT SELECT  ON dbo.vw_MedidoresParaLectura             TO Rol_Fontanero;
 GRANT SELECT  ON dbo.vw_MantenimientosPendientes         TO Rol_Fontanero;
 GO
 
@@ -221,9 +225,11 @@ GRANT EXECUTE ON dbo.sp_HistorialConsumo           TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_ConsultarFacturas          TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_ConsultarMantenimientos    TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_ConsultarIncidencias       TO Rol_JuntaDirectiva;
+GRANT EXECUTE ON dbo.sp_ResumenOperativoMantenimientos TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_SimularMontoConTarifa      TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_ConciliarOrigenDW          TO Rol_JuntaDirectiva;
 GRANT SELECT  ON dbo.vw_UsuariosMorosos            TO Rol_JuntaDirectiva;
+GRANT SELECT  ON dbo.vw_ResumenCartera             TO Rol_JuntaDirectiva;
 GRANT SELECT  ON dbo.vw_ResumenConsumoMensual      TO Rol_JuntaDirectiva;
 GRANT SELECT  ON dbo.vw_PagosPorMetodo             TO Rol_JuntaDirectiva;
 GRANT SELECT  ON dbo.vw_IncidentesAbiertos         TO Rol_JuntaDirectiva;
@@ -242,28 +248,14 @@ GRANT SELECT  ON dbo.Historial_Respaldo                TO Rol_OperadorRespaldo;
 GRANT SELECT  ON dbo.Politica_Respaldo                 TO Rol_OperadorRespaldo;
 GO
 
-/* ---------------------------------------------------------------------
-   Data Warehouse: lectura para la Junta Directiva
-   --------------------------------------------------------------------- */
-USE ASADA_DW;
-GO
-IF DATABASE_PRINCIPAL_ID('Rol_LecturaDW') IS NULL CREATE ROLE Rol_LecturaDW;
-GRANT SELECT ON SCHEMA::dbo TO Rol_LecturaDW;
-GO
 
-/* ---------------------------------------------------------------------
-   Ejemplo de logins (ejecutar como sysadmin y cambiar las contraseñas):
-
-   USE master;
-   CREATE LOGIN app_asada   WITH PASSWORD = 'Cambiar#Esta1', CHECK_POLICY = ON;
-   CREATE LOGIN dba_asada   WITH PASSWORD = 'Cambiar#Esta2', CHECK_POLICY = ON;
-   CREATE LOGIN junta_asada WITH PASSWORD = 'Cambiar#Esta3', CHECK_POLICY = ON;
-
-   USE ASADA;
-   CREATE USER app_asada   FOR LOGIN app_asada;   ALTER ROLE Rol_Operador       ADD MEMBER app_asada;
-   CREATE USER dba_asada   FOR LOGIN dba_asada;   ALTER ROLE Rol_DBA            ADD MEMBER dba_asada;
-   CREATE USER junta_asada FOR LOGIN junta_asada; ALTER ROLE Rol_JuntaDirectiva ADD MEMBER junta_asada;
-
-   USE ASADA_DW;
-   CREATE USER junta_asada FOR LOGIN junta_asada; ALTER ROLE Rol_LecturaDW ADD MEMBER junta_asada;
-   --------------------------------------------------------------------- */
+   -- Data Warehouse: roles en 15_acceso_dw.sql (lo invocan ejecutar_todo
+   -- y actualizar_a_development). No se crean logins. Ejemplo:
+   --
+   --   USE ASADA_DW;
+   --   CREATE USER [nombre_del_login] FROM LOGIN [nombre_del_login];
+   --   ALTER ROLE Rol_LecturaDW ADD MEMBER [nombre_del_login];  -- reportes
+   --   -- ALTER ROLE Rol_CargaDW  ADD MEMBER [nombre_del_login]; -- ETL
+   --
+   -- El ETL en ASADA lo corre Rol_DBA (db_owner). Rol_Operador tiene DENY
+   -- sobre el orquestador, el reintento y los sp_ETL_*. React no se toca.

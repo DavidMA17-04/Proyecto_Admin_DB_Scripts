@@ -1,15 +1,13 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
-   Script 09: Procedimientos - Usuarios, roles, permisos y bitácora (R6, RA1, RA5)
-   ===================================================================== */
+/* ---------------------------------------------------------------------
+   Script 09: Procedimientos - Usuarios, roles, permisos y bitácora 
+   --------------------------------------------------------------------*/
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.9 Bitácora
-   --------------------------------------------------------------------- */
+   --Bitácora
 -- Punto único para registrar eventos que no provienen de un trigger
 -- (inicios de sesión, respaldos, restauraciones, ETL, mantenimiento de la BD).
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarEventoBitacora
@@ -67,9 +65,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.24 Usuario del sistema
-   --------------------------------------------------------------------- */
+   --Usuario del sistema
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarInicioSesion
     @id_usuario_sistema int
 AS
@@ -314,9 +310,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.25 Rol
-   --------------------------------------------------------------------- */
+   --Rol
 -- Si @id_rol es NULL se registra un rol nuevo; si no, se modifica.
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarRol
     @nombre_rol varchar(25),
@@ -376,9 +370,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.26 Permiso / 12.28 Módulo
-   --------------------------------------------------------------------- */
+   -- Permiso / Módulo
 CREATE OR ALTER PROCEDURE dbo.sp_GestionarPermiso
     @id_modulo      int,
     @nombre_permiso varchar(50),
@@ -461,9 +453,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.27 Rol_permiso
-   --------------------------------------------------------------------- */
+   --Rol_permiso
 CREATE OR ALTER PROCEDURE dbo.sp_AsignarPermisoRol
     @id_rol     int,
     @id_permiso int

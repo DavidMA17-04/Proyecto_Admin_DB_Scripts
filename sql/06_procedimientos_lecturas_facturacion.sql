@@ -1,23 +1,23 @@
 ﻿SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
-/* =====================================================================
+/* ---------------------------------------------------------------------
    Script 06: Procedimientos - Lecturas y facturación (R2)
-   ===================================================================== */
+   --------------------------------------------------------------------*/
 USE ASADA;
 GO
 
-/* ---------------------------------------------------------------------
-   12.4 Lectura
-   --------------------------------------------------------------------- */
+   --Lectura
 -- Registra la lectura mensual. La lectura anterior se toma con fn_ObtenerUltimaLectura.
 -- Al insertar se disparan trg_ActualizarUltimaLectura y trg_VerificarConsumoAlInsertar.
+-- Si el trigger creó una alerta, se reporta en @id_alerta.
 CREATE OR ALTER PROCEDURE dbo.sp_RegistrarLectura
     @id_medidor      int,
     @lectura_actual  decimal(10,2),
     @fecha_lectura   datetime = NULL,
     @id_lectura      int = NULL OUTPUT,
-    @consumo         decimal(10,2) = NULL OUTPUT
+    @consumo         decimal(10,2) = NULL OUTPUT,
+    @id_alerta       int = NULL OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -25,6 +25,7 @@ BEGIN
 
     DECLARE @lectura_anterior decimal(10,2), @ultima_fecha datetime;
     SET @fecha_lectura = ISNULL(@fecha_lectura, GETDATE());
+    SET @id_alerta = NULL;
 
     IF NOT EXISTS (SELECT 1 FROM dbo.Medidor WHERE id_medidor = @id_medidor AND estado = 'Activo')
         THROW 50201, 'El medidor no existe o no está activo.', 1;
@@ -53,6 +54,11 @@ BEGIN
     VALUES (@id_medidor, @fecha_lectura, @lectura_anterior, @lectura_actual);
 
     SET @id_lectura = SCOPE_IDENTITY();
+
+    SELECT TOP (1) @id_alerta = id_alerta
+    FROM dbo.Alerta_Consumo
+    WHERE id_lectura = @id_lectura
+    ORDER BY id_alerta DESC;
 END;
 GO
 
@@ -142,9 +148,7 @@ BEGIN
 END;
 GO
 
-/* ---------------------------------------------------------------------
-   12.5 Factura
-   --------------------------------------------------------------------- */
+   --Factura
 -- Genera la factura de una lectura con la tarifa vigente a la fecha de la lectura.
 CREATE OR ALTER PROCEDURE dbo.sp_GenerarFactura
     @id_lectura  int,
@@ -255,12 +259,12 @@ BEGIN
 END;
 GO
 
--- R2-02: búsqueda de facturas por abonado, conexión, periodo o estado.
+--búsqueda de facturas por abonado, conexión, periodo o estado.
 CREATE OR ALTER PROCEDURE dbo.sp_ConsultarFacturas
     @tipo_abonado varchar(10) = NULL,
     @id_abonado   int         = NULL,
     @id_conexion  int         = NULL,
-    @periodo      int         = NULL,   -- AAAAMM
+    @periodo      int         = NULL,   
     @estado       varchar(10) = NULL
 AS
 BEGIN
