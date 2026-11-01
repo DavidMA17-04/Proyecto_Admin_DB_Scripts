@@ -1,4 +1,4 @@
-﻿SET ANSI_NULLS ON;
+SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 /* ---------------------------------------------------------------------
@@ -225,6 +225,7 @@ GRANT EXECUTE ON dbo.sp_HistorialConsumo           TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_ConsultarFacturas          TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_ConsultarMantenimientos    TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_ConsultarIncidencias       TO Rol_JuntaDirectiva;
+GRANT EXECUTE ON dbo.sp_ResumenOperativoMantenimientos TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_SimularMontoConTarifa      TO Rol_JuntaDirectiva;
 GRANT EXECUTE ON dbo.sp_ConciliarOrigenDW          TO Rol_JuntaDirectiva;
 GRANT SELECT  ON dbo.vw_UsuariosMorosos            TO Rol_JuntaDirectiva;

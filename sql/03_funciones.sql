@@ -1,4 +1,4 @@
-﻿SET ANSI_NULLS ON;
+SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 /* ---------------------------------------------------------------------
@@ -107,6 +107,9 @@ RETURN
 GO
 
 -- Usada por CK_Tarifa_TipoValido: el tipo de tarifa debe existir y estar activo
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_Tarifa_TipoValido')
+    ALTER TABLE dbo.Tarifa DROP CONSTRAINT CK_Tarifa_TipoValido;
+GO
 CREATE OR ALTER FUNCTION dbo.fn_TipoTarifaActivo (@id_tipo_tarifa int)
 RETURNS bit
 AS
@@ -333,6 +336,144 @@ BEGIN
 
     RETURN @horas;
 END;
+GO
+
+-- Tiempo máximo esperado de atención (SLA en horas) según la prioridad de la incidencia.
+CREATE OR ALTER FUNCTION dbo.fn_ObtenerSLAPrioridad (@prioridad varchar(10))
+RETURNS int
+AS
+BEGIN
+    RETURN CASE @prioridad
+        WHEN 'Alta'  THEN 24
+        WHEN 'Media' THEN 72
+        WHEN 'Baja'  THEN 168
+        ELSE 72
+    END;
+END;
+GO
+
+-- Evalúa si una incidencia cumple el tiempo objetivo (SLA) según su prioridad:
+-- 'En tiempo', 'Por vencer' (>= 75 % del SLA mientras sigue abierta) o 'Vencida'.
+CREATE OR ALTER FUNCTION dbo.fn_VerificarCumplimientoSLA (@id_incidencia int)
+RETURNS varchar(20)
+AS
+BEGIN
+    DECLARE @fecha datetime, @estado varchar(20), @prioridad varchar(10),
+            @sla int, @horas int;
+
+    SELECT @fecha = fecha_incidente, @estado = estado, @prioridad = prioridad
+    FROM dbo.Incidencia
+    WHERE id_incidencia = @id_incidencia;
+
+    IF @fecha IS NULL RETURN NULL;
+
+    SET @sla = dbo.fn_ObtenerSLAPrioridad(@prioridad);
+    SET @horas = CASE
+        WHEN @estado = 'Resuelta' THEN ISNULL(dbo.fn_CalcularTiempoResolucion(@id_incidencia), DATEDIFF(HOUR, @fecha, ISNULL((SELECT fecha_modificacion FROM dbo.Incidencia WHERE id_incidencia = @id_incidencia), GETDATE())))
+        ELSE DATEDIFF(HOUR, @fecha, GETDATE())
+    END;
+
+    IF @horas > @sla RETURN 'Vencida';
+    IF @estado <> 'Resuelta' AND @horas >= (@sla * 3 / 4) RETURN 'Por vencer';
+    RETURN 'En tiempo';
+END;
+GO
+
+-- Cantidad de mantenimientos activos ('Programado' o 'En proceso') asignados a un empleado.
+CREATE OR ALTER FUNCTION dbo.fn_ContarCargaActivaEmpleado (@id_empleado int)
+RETURNS int
+AS
+BEGIN
+    DECLARE @activos int;
+
+    SELECT @activos = COUNT(*)
+    FROM dbo.Mantenimiento
+    WHERE id_empleado = @id_empleado
+      AND estado IN ('Programado', 'En proceso');
+
+    RETURN ISNULL(@activos, 0);
+END;
+GO
+
+-- Porcentaje de efectividad de un empleado: mantenimientos finalizados sobre el total
+-- asignado (excluyendo cancelados). Devuelve 100.00 si aún no tiene órdenes asignadas.
+CREATE OR ALTER FUNCTION dbo.fn_ObtenerIndiceEficienciaEmpleado (@id_empleado int)
+RETURNS decimal(5,2)
+AS
+BEGIN
+    DECLARE @total int, @finalizados int;
+
+    SELECT @total = COUNT(*),
+           @finalizados = SUM(CASE WHEN estado = 'Finalizado' THEN 1 ELSE 0 END)
+    FROM dbo.Mantenimiento
+    WHERE id_empleado = @id_empleado
+      AND estado <> 'Cancelado';
+
+    IF ISNULL(@total, 0) = 0 RETURN 100.00;
+    RETURN CAST((@finalizados * 100.0) / @total AS decimal(5,2));
+END;
+GO
+
+-- Cantidad de incidencias registradas para una conexión en los últimos @dias días.
+CREATE OR ALTER FUNCTION dbo.fn_ContarIncidenciasReincidentes
+(
+    @id_conexion int,
+    @dias        int = 90
+)
+RETURNS int
+AS
+BEGIN
+    DECLARE @total int;
+
+    SELECT @total = COUNT(*)
+    FROM dbo.Incidencia i
+    JOIN dbo.Medidor m ON m.id_medidor = i.id_medidor
+    WHERE m.id_conexion = @id_conexion
+      AND i.fecha_incidente >= DATEADD(DAY, -ISNULL(NULLIF(@dias, 0), 90), GETDATE());
+
+    RETURN ISNULL(@total, 0);
+END;
+GO
+
+-- Función con valores de tabla en línea: resumen operativo de incidencias y
+-- mantenimientos de una conexión para diagnósticos y planes preventivos.
+CREATE OR ALTER FUNCTION dbo.fn_ResumenOperativoConexion (@id_conexion int)
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT
+        c.id_conexion,
+        c.ubicacion,
+        c.estado AS estado_conexion,
+        dbo.fn_ObtenerNombreCompleto(c.id_abonado_fisico, c.id_abonado_juridico) AS abonado,
+        ISNULL(inc.total_incidencias, 0) AS total_incidencias,
+        ISNULL(inc.incidencias_abiertas, 0) AS incidencias_abiertas,
+        dbo.fn_ContarIncidenciasReincidentes(c.id_conexion, 90) AS incidencias_90_dias,
+        ISNULL(mant.total_mantenimientos, 0) AS total_mantenimientos,
+        ISNULL(mant.mantenimientos_pendientes, 0) AS mantenimientos_pendientes,
+        mant.ultimo_mantenimiento,
+        mant.horas_promedio_resolucion
+    FROM dbo.Conexion c
+    OUTER APPLY (
+        SELECT
+            COUNT(*) AS total_incidencias,
+            SUM(CASE WHEN i.estado <> 'Resuelta' THEN 1 ELSE 0 END) AS incidencias_abiertas
+        FROM dbo.Incidencia i
+        JOIN dbo.Medidor m ON m.id_medidor = i.id_medidor
+        WHERE m.id_conexion = c.id_conexion
+    ) inc
+    OUTER APPLY (
+        SELECT
+            COUNT(*) AS total_mantenimientos,
+            SUM(CASE WHEN mt.estado IN ('Programado', 'En proceso') THEN 1 ELSE 0 END) AS mantenimientos_pendientes,
+            MAX(mt.fecha_inicio) AS ultimo_mantenimiento,
+            AVG(CAST(dbo.fn_CalcularDuracionMantenimiento(mt.id_mantenimiento) AS decimal(10,2))) AS horas_promedio_resolucion
+        FROM dbo.Mantenimiento mt
+        WHERE mt.id_conexion = c.id_conexion
+    ) mant
+    WHERE c.id_conexion = @id_conexion
+);
 GO
 
 -- Periodo (AAAAMM) al que corresponde una fecha
