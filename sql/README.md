@@ -34,6 +34,26 @@ EXEC dbo.sp_EjecutarCargaDW;     -- ETL hacia ASADA_DW
 EXEC dbo.sp_LimpiarDatosPrueba;  -- deja la base como estaba
 ```
 
+## Datos y consultas de demostración
+
+Estos scripts **no** forman parte de `ejecutar_todo.sql`. Úselos después de la instalación base cuando necesite presentar el sistema con un año de operación simulada y el Data Warehouse cargado.
+
+| Script | Cuándo usarlo |
+|--------|----------------|
+| `19_datos_demo.sql` | Carga inicial de la demo (abonados SC-, lecturas, facturas, pagos, incidencias, mantenimientos y ETL). **Una sola vez** por base: si ya hay medidores `SC-`, el script se detiene. |
+| `19_completar_incidencias_demo.sql` | **Solo si** la demo quedó a medias (hay medidores `SC-` pero **cero** incidencias). Completa incidencias, mantenimientos y el ETL de esos hechos. No sustituye al `19`. |
+| `20_consultas_demostracion.sql` | Consultas de lectura sobre ASADA (vistas y procedimientos) para SSMS o `sqlcmd`. Requiere ASADA instalada; opcionalmente la demo del `19`. |
+| `21_consultas_data_warehouse.sql` | Consultas analíticas sobre ASADA_DW (dimensiones, hechos, validación y conciliación). Requiere ETL previo (`19_datos_demo.sql` o `EXEC dbo.sp_EjecutarCargaDW`). |
+
+Orden recomendado para una presentación completa:
+
+1. `ejecutar_todo.sql` (instalación).
+2. `19_datos_demo.sql` (datos y ETL de demo).
+3. Si el paso 2 falló en incidencias/mantenimientos y no puede repetir el `19`, `19_completar_incidencias_demo.sql`.
+4. `20_consultas_demostracion.sql` y `21_consultas_data_warehouse.sql` (solo lectura).
+
+Si ejecuta pruebas de la API que crean empleados de prueba (`backend/pruebas/seguridad.js`), vuelva a sincronizar dimensiones con `EXEC dbo.sp_ETL_CargarDimensionesDW` antes de validar el DW con `sp_ValidarCargaDW`.
+
 ## Contenido
 
 | Script | Contenido |
