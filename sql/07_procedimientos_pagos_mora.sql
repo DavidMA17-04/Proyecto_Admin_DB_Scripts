@@ -61,6 +61,42 @@ BEGIN
 
         SET @id_pago = SCOPE_IDENTITY();
 
+        -- Flujo de Reconexión Automática: si la conexión estaba cortada por mora y liquidó su deuda
+        DECLARE @id_conexion int;
+        SELECT @id_conexion = m.id_conexion
+        FROM dbo.Factura f
+        INNER JOIN dbo.Lectura l ON f.id_lectura = l.id_lectura
+        INNER JOIN dbo.Medidor m ON l.id_medidor = m.id_medidor
+        WHERE f.id_factura = @id_factura;
+
+        IF @id_conexion IS NOT NULL AND EXISTS (SELECT 1 FROM dbo.Conexion WHERE id_conexion = @id_conexion AND estado = 'Cortada')
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 
+                FROM dbo.Factura f2
+                INNER JOIN dbo.Lectura l2 ON f2.id_lectura = l2.id_lectura
+                INNER JOIN dbo.Medidor m2 ON l2.id_medidor = m2.id_medidor
+                WHERE m2.id_conexion = @id_conexion 
+                  AND f2.estado IN ('Pendiente', 'Vencida')
+                  AND dbo.fn_CalcularSaldoPendiente(f2.id_factura) > 0
+            )
+            BEGIN
+                UPDATE dbo.Conexion SET estado = 'Activa' WHERE id_conexion = @id_conexion;
+
+                DECLARE @id_tipo_reconexion int;
+                SELECT @id_tipo_reconexion = id_tipo_trabajo FROM dbo.Tipo_Trabajo WHERE nombre_trabajo = 'Reconexión';
+
+                DECLARE @id_fontanero int;
+                SELECT TOP 1 @id_fontanero = id_empleado FROM dbo.Empleado WHERE puesto LIKE '%Fontaner%' AND activo = 1;
+
+                IF @id_tipo_reconexion IS NOT NULL AND @id_fontanero IS NOT NULL
+                BEGIN
+                    INSERT INTO dbo.Mantenimiento (id_empleado, id_tipo_trabajo, id_conexion, descripcion, fecha_inicio, estado)
+                    VALUES (@id_fontanero, @id_tipo_reconexion, @id_conexion, 'Reconexión automática por cancelación total de saldo moroso en caja.', GETDATE(), 'Finalizado');
+                END
+            END
+        END
+
         COMMIT;
     END TRY
     BEGIN CATCH
@@ -258,7 +294,7 @@ BEGIN
 
     SELECT @recargos_procesados AS facturas_procesadas;
     IF EXISTS (SELECT 1 FROM @errores)
-        SELECT * FROM @errores;
+        select id_factura, mensaje from @errores;
 END;
 GO
 

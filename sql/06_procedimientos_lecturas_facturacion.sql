@@ -44,6 +44,17 @@ BEGIN
        AND dbo.fn_ObtenerPeriodoFiscal(@ultima_fecha) = dbo.fn_ObtenerPeriodoFiscal(@fecha_lectura)
         THROW 50204, 'El medidor ya tiene una lectura registrada en ese mes.', 1;
 
+    -- Validar consistencia: no registrar lecturas en periodos ya facturados y cerrados
+    DECLARE @periodo_lectura int = dbo.fn_ObtenerPeriodoFiscal(@fecha_lectura);
+    IF EXISTS (
+        SELECT 1 
+        FROM dbo.Factura f
+        INNER JOIN dbo.Lectura l ON f.id_lectura = l.id_lectura
+        WHERE l.id_medidor = @id_medidor 
+          AND dbo.fn_ObtenerPeriodoFiscal(l.fecha_lectura_actual) = @periodo_lectura
+    )
+        THROW 50206, 'El periodo correspondiente a la fecha de lectura ya se encuentra facturado y cerrado.', 1;
+
     SET @lectura_anterior = dbo.fn_ObtenerUltimaLectura(@id_medidor);
     SET @consumo = dbo.fn_CalcularConsumo(@lectura_anterior, @lectura_actual);
 
@@ -238,7 +249,7 @@ BEGIN
 
     SELECT @facturas_generadas AS facturas_generadas;
     IF EXISTS (SELECT 1 FROM @errores)
-        SELECT * FROM @errores;
+        select id_lectura, mensaje from @errores;
 END;
 GO
 

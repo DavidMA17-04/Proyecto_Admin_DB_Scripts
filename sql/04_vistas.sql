@@ -161,10 +161,12 @@ AS
 SELECT
     i.id_incidencia, ti.nombre_incidencia AS tipo, i.prioridad, i.estado,
     i.fecha_incidente, DATEDIFF(HOUR, i.fecha_incidente, GETDATE()) AS horas_abierta,
-    i.descripcion, i.ubicacion, m.numero_serie AS medidor, m.id_conexion
+    i.descripcion, ISNULL(NULLIF(i.ubicacion, ''), c.ubicacion) AS ubicacion,
+    m.numero_serie AS medidor, m.id_conexion
 FROM dbo.Incidencia i
 JOIN dbo.Tipo_Incidencia ti ON ti.id_tipo_incidencia = i.id_tipo_incidencia
 JOIN dbo.Medidor m          ON m.id_medidor = i.id_medidor
+JOIN dbo.Conexion c         ON c.id_conexion = m.id_conexion
 WHERE i.estado IN ('Abierta', 'En proceso');
 GO
 
@@ -307,8 +309,20 @@ CREATE OR ALTER VIEW dbo.vw_UltimaCargaPorTabla
 AS
 SELECT nombre_tabla_destino, fecha_proceso, fecha_ultima_carga, filas_procesadas, estado, mensaje_error
 FROM (
-    SELECT *, ROW_NUMBER() OVER (PARTITION BY nombre_tabla_destino ORDER BY fecha_proceso DESC, id_proceso_etl DESC) AS rn
-    FROM dbo.Control_ETL
+    select
+        Control_ETL.id_proceso_etl,
+        Control_ETL.nombre_tabla_destino,
+        Control_ETL.fecha_ultima_carga,
+        Control_ETL.fecha_proceso,
+        Control_ETL.filas_procesadas,
+        Control_ETL.estado,
+        Control_ETL.mensaje_error,
+        Control_ETL.reintentado,
+        row_number() over (
+            partition by Control_ETL.nombre_tabla_destino
+            order by Control_ETL.fecha_proceso desc, Control_ETL.id_proceso_etl desc
+        ) as rn
+    from dbo.Control_ETL
 ) x
 WHERE rn = 1;
 GO

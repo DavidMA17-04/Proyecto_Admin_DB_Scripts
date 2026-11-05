@@ -214,7 +214,7 @@ USE ASADA;
 GO
 
 -- Toma la primera parte de una dirección o ubicación como distrito.
--- Ej.: 'Nicoya, 200 m norte del parque' -> 'Nicoya'
+-- Ej.: 'Santa Cruz, 200 m norte del parque' -> 'Santa Cruz'
 CREATE OR ALTER FUNCTION dbo.fn_ExtraerDistrito (@texto varchar(200))
 RETURNS varchar(50)
 AS
@@ -908,7 +908,15 @@ BEGIN
     SET @desc = CONCAT('Fin de la carga del DW. Procesos fallidos: ', @fallos, '. Validaciones con observaciones: ', @problemas, '.');
     EXEC dbo.sp_RegistrarEventoBitacora 'ETL', 'Control_ETL', @desc;
 
-    SELECT * FROM dbo.vw_UltimaCargaPorTabla ORDER BY nombre_tabla_destino;
+    select
+        vw_UltimaCargaPorTabla.nombre_tabla_destino,
+        vw_UltimaCargaPorTabla.fecha_proceso,
+        vw_UltimaCargaPorTabla.fecha_ultima_carga,
+        vw_UltimaCargaPorTabla.filas_procesadas,
+        vw_UltimaCargaPorTabla.estado,
+        vw_UltimaCargaPorTabla.mensaje_error
+    from dbo.vw_UltimaCargaPorTabla
+    order by vw_UltimaCargaPorTabla.nombre_tabla_destino;
 
     IF @fallos > 0
         THROW 50901, 'Uno o más procesos ETL fallaron. Revise vw_CargasFallidas.', 1;

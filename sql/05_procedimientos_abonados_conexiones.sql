@@ -93,15 +93,37 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT a.*
-    INTO #abonados
-    FROM dbo.vw_Abonados a
-    WHERE (@id_abonado     IS NULL OR a.id_abonado = @id_abonado)
-      AND (@tipo_abonado   IS NULL OR a.tipo_abonado = @tipo_abonado)
-      AND (@identificacion IS NULL OR a.identificacion = REPLACE(@identificacion, '-', ''))
-      AND (@nombre         IS NULL OR a.nombre_completo LIKE '%' + @nombre + '%');
+    select
+        dbo.vw_Abonados.tipo_abonado,
+        dbo.vw_Abonados.id_abonado,
+        dbo.vw_Abonados.tipo_identificacion,
+        dbo.vw_Abonados.identificacion,
+        dbo.vw_Abonados.nombre_completo,
+        dbo.vw_Abonados.direccion,
+        dbo.vw_Abonados.telefono,
+        dbo.vw_Abonados.correo_electronico,
+        dbo.vw_Abonados.fecha_registro,
+        dbo.vw_Abonados.activo
+    into #abonados
+    from dbo.vw_Abonados
+    where (@id_abonado     is null or dbo.vw_Abonados.id_abonado = @id_abonado)
+      and (@tipo_abonado   is null or dbo.vw_Abonados.tipo_abonado = @tipo_abonado)
+      and (@identificacion is null or dbo.vw_Abonados.identificacion = replace(@identificacion, '-', ''))
+      and (@nombre         is null or dbo.vw_Abonados.nombre_completo like '%' + @nombre + '%');
 
-    SELECT * FROM #abonados ORDER BY nombre_completo;
+    select
+        #abonados.tipo_abonado,
+        #abonados.id_abonado,
+        #abonados.tipo_identificacion,
+        #abonados.identificacion,
+        #abonados.nombre_completo,
+        #abonados.direccion,
+        #abonados.telefono,
+        #abonados.correo_electronico,
+        #abonados.fecha_registro,
+        #abonados.activo
+    from #abonados
+    order by #abonados.nombre_completo;
 
     SELECT a.tipo_abonado, a.id_abonado, c.id_conexion, c.ubicacion, c.estado,
            tt.nombre_tarifa AS tipo_tarifa, c.fecha_conexion

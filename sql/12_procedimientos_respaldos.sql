@@ -226,7 +226,7 @@ BEGIN
     CLOSE cur;
     DEALLOCATE cur;
 
-    SELECT * FROM @resultado;
+    select id_respaldo, ruta_archivo, resultado, mensaje from @resultado;
 END;
 GO
 
