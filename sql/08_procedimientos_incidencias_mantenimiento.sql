@@ -13,7 +13,7 @@ CREATE OR ALTER PROCEDURE dbo.sp_RegistrarIncidente
     @id_medidor          int,
     @id_tipo_incidencia  int,
     @descripcion         varchar(100),
-    @ubicacion           varchar(20) = NULL,
+    @ubicacion           varchar(200) = NULL,
     @fecha_incidente     datetime    = NULL,
     @id_alerta           int         = NULL,
     @id_incidencia       int         = NULL OUTPUT
@@ -33,6 +33,13 @@ BEGIN
 
     IF @id_alerta IS NOT NULL AND NOT EXISTS (SELECT 1 FROM dbo.Alerta_Consumo WHERE id_alerta = @id_alerta)
         THROW 50404, 'La alerta de consumo indicada no existe.', 1;
+
+    -- Autocompletar ubicacion si viene nula o vacia desde la conexion
+    IF NULLIF(LTRIM(ISNULL(@ubicacion, '')), '') IS NULL
+        SELECT @ubicacion = c.ubicacion
+        FROM dbo.Medidor m
+        JOIN dbo.Conexion c ON c.id_conexion = m.id_conexion
+        WHERE m.id_medidor = @id_medidor;
 
     BEGIN TRY
         BEGIN TRANSACTION;
@@ -171,7 +178,8 @@ BEGIN
     SET NOCOUNT ON;
 
     SELECT i.id_incidencia, ti.nombre_incidencia AS tipo, i.prioridad, i.estado,
-           i.fecha_incidente, i.descripcion, i.ubicacion,
+           i.fecha_incidente, i.descripcion,
+           ISNULL(NULLIF(i.ubicacion, ''), c.ubicacion) AS ubicacion,
            m.numero_serie AS medidor, m.id_conexion,
            dbo.fn_CalcularTiempoResolucion(i.id_incidencia) AS horas_resolucion,
            dbo.fn_ObtenerSLAPrioridad(i.prioridad) AS sla_horas,
@@ -179,6 +187,7 @@ BEGIN
     FROM dbo.Incidencia i
     JOIN dbo.Tipo_Incidencia ti ON ti.id_tipo_incidencia = i.id_tipo_incidencia
     JOIN dbo.Medidor m          ON m.id_medidor = i.id_medidor
+    JOIN dbo.Conexion c         ON c.id_conexion = m.id_conexion
     WHERE (@estado             IS NULL OR i.estado = @estado)
       AND (@id_tipo_incidencia IS NULL OR i.id_tipo_incidencia = @id_tipo_incidencia)
       AND (@id_conexion        IS NULL OR m.id_conexion = @id_conexion)
@@ -382,6 +391,21 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM dbo.Empleado WHERE id_empleado = @id_empleado AND activo = 1)
         THROW 50410, 'El empleado no existe o está inactivo.', 1;
 
+    -- Regla de negocio: La Junta Directiva, Administrador y DBA no son fontaneros
+    IF NOT EXISTS (
+        SELECT 1
+        FROM dbo.Empleado e
+        LEFT JOIN dbo.Usuario_Sistema u ON u.id_empleado = e.id_empleado
+        LEFT JOIN dbo.Rol r             ON r.id_rol = u.id_rol
+        WHERE e.id_empleado = @id_empleado
+          AND e.activo = 1
+          AND (e.puesto LIKE '%Fontaner%' OR r.nombre_rol = 'Fontanero')
+          AND e.puesto NOT LIKE '%Junta%'
+          AND e.puesto NOT LIKE '%Admin%'
+          AND e.puesto NOT LIKE '%DBA%'
+    )
+        THROW 50432, 'El empleado asignado debe tener puesto o rol de Fontanero (la Junta Directiva, Administrador y DBA no realizan trabajos de campo).', 1;
+
     IF NOT EXISTS (SELECT 1 FROM dbo.Tipo_Trabajo WHERE id_tipo_trabajo = @id_tipo_trabajo AND activo = 1)
         THROW 50411, 'El tipo de trabajo no existe o está inactivo.', 1;
 
@@ -397,6 +421,10 @@ BEGIN
 
     IF @descripcion IS NULL
         THROW 50413, 'Debe describir el trabajo de mantenimiento.', 1;
+
+    -- Regla de negocio: no se puede programar un mantenimiento con fecha anterior a la actual
+    IF @fecha_inicio IS NOT NULL AND CAST(@fecha_inicio AS DATE) < CAST(GETDATE() AS DATE)
+        THROW 50417, 'Regla de negocio: No se puede programar un mantenimiento en una fecha anterior a la actual.', 1;
 
     INSERT INTO dbo.Mantenimiento (id_empleado, id_tipo_trabajo, id_conexion, id_incidencia, descripcion, fecha_inicio)
     VALUES (@id_empleado, @id_tipo_trabajo, @id_conexion, @id_incidencia, @descripcion, ISNULL(@fecha_inicio, GETDATE()));
@@ -426,6 +454,9 @@ BEGIN
 
     IF @nuevo_estado NOT IN ('Programado', 'En proceso', 'Cancelado')
         THROW 50416, 'Estado no válido. Para finalizar use sp_CerrarMantenimiento.', 1;
+
+    IF @nuevo_estado = 'Cancelado' AND NULLIF(LTRIM(ISNULL(@anotacion, '')), '') IS NULL
+        THROW 50418, 'Debe indicar el motivo o justificación técnica para cancelar la orden de mantenimiento.', 1;
 
     EXEC sys.sp_set_session_context @key = N'comentario', @value = @anotacion;
 
@@ -623,7 +654,7 @@ BEGIN
     GROUP BY i.prioridad
     ORDER BY CASE i.prioridad WHEN 'Alta' THEN 1 WHEN 'Media' THEN 2 ELSE 3 END;
 
-    -- 2. Carga activa y eficiencia operativa por empleado
+    -- 2. Carga activa y eficiencia operativa por fontanero (excluye Junta, Admin y DBA)
     SELECT
         e.id_empleado,
         CONCAT_WS(' ', e.nombre_empleado, e.apellido1_empleado, e.apellido2_empleado) AS empleado,
@@ -633,10 +664,16 @@ BEGIN
         CAST(AVG(CAST(dbo.fn_CalcularDuracionMantenimiento(mt.id_mantenimiento) AS decimal(10,2))) AS decimal(10,2)) AS horas_promedio_trabajo,
         dbo.fn_ObtenerIndiceEficienciaEmpleado(e.id_empleado) AS porcentaje_eficiencia
     FROM dbo.Empleado e
-    LEFT JOIN dbo.Mantenimiento mt ON mt.id_empleado = e.id_empleado
+    LEFT JOIN dbo.Usuario_Sistema u ON u.id_empleado = e.id_empleado
+    LEFT JOIN dbo.Rol r             ON r.id_rol = u.id_rol
+    LEFT JOIN dbo.Mantenimiento mt  ON mt.id_empleado = e.id_empleado
         AND (@desde IS NULL OR mt.fecha_inicio >= @desde)
         AND (@hasta IS NULL OR mt.fecha_inicio < DATEADD(DAY, 1, @hasta))
     WHERE e.activo = 1
+      AND (e.puesto LIKE '%Fontaner%' OR r.nombre_rol = 'Fontanero')
+      AND e.puesto NOT LIKE '%Junta%'
+      AND e.puesto NOT LIKE '%Admin%'
+      AND e.puesto NOT LIKE '%DBA%'
     GROUP BY e.id_empleado, e.nombre_empleado, e.apellido1_empleado, e.apellido2_empleado, e.puesto
     ORDER BY carga_activa DESC, porcentaje_eficiencia DESC;
 

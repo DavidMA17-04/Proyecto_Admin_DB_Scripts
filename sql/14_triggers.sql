@@ -622,3 +622,30 @@ BEGIN
     WHERE i.estado = 'Fallido' AND (d.id_proceso_etl IS NULL OR d.estado <> 'Fallido');
 END;
 GO
+
+
+-- =====================================================================
+-- Trigger: trg_Mantenimiento_ValidarFechaProgramacion
+-- Regla de Negocio: No se puede programar un mantenimiento con fecha
+-- anterior a la fecha actual (del día de hoy).
+-- =====================================================================
+CREATE OR ALTER TRIGGER dbo.trg_Mantenimiento_ValidarFechaProgramacion
+ON dbo.Mantenimiento
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+        WHERE i.estado = 'Programado'
+          AND CAST(i.fecha_inicio AS DATE) < CAST(GETDATE() AS DATE)
+    )
+    BEGIN
+        RAISERROR ('Regla de negocio: No se puede programar un mantenimiento en una fecha anterior a la actual.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END;
+END;
+GO

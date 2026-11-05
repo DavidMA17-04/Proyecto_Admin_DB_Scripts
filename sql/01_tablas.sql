@@ -1,4 +1,4 @@
-﻿SET ANSI_NULLS ON;
+SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 /* ---------------------------------------------------------------------
@@ -307,7 +307,7 @@ CREATE TABLE dbo.Incidencia (
     id_tipo_incidencia  int          NOT NULL,
     fecha_incidente     datetime     NOT NULL CONSTRAINT DF_Incidencia_Fecha DEFAULT (GETDATE()),
     descripcion         varchar(100) NOT NULL,
-    ubicacion           varchar(20)  NULL,
+    ubicacion           varchar(200)  NULL,
     estado              varchar(20)  NOT NULL CONSTRAINT DF_Incidencia_Estado DEFAULT ('Abierta'),
     prioridad           varchar(10)  NULL,
     fecha_modificacion  datetime     NULL CONSTRAINT DF_Incidencia_FechaMod DEFAULT (GETDATE()),
@@ -358,7 +358,7 @@ CREATE TABLE dbo.Mantenimiento (
     CONSTRAINT FK_Mantenimiento_Conexion    FOREIGN KEY (id_conexion)     REFERENCES dbo.Conexion (id_conexion),
     CONSTRAINT FK_Mantenimiento_Incidencia  FOREIGN KEY (id_incidencia)   REFERENCES dbo.Incidencia (id_incidencia),
     CONSTRAINT CK_Mantenimiento_EstadoValido CHECK (estado IN ('Programado', 'En proceso', 'Finalizado', 'Cancelado')),
-    CONSTRAINT CK_Mantenimiento_Fechas CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio)
+    CONSTRAINT CK_Mantenimiento_Fechas CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio OR estado = 'Cancelado')
 ) ON Operaciones;
 GO
 

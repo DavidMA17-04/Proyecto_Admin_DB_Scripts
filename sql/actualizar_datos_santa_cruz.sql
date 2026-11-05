@@ -1,4 +1,4 @@
-﻿-- Corrige bases ya instaladas: deja todas las direcciones y ubicaciones en el
+-- Corrige bases ya instaladas: deja todas las direcciones y ubicaciones en el
 -- cantón de Santa Cruz (antes había datos de prueba con Nicoya y Mansión).
 -- Se puede ejecutar varias veces. En sqlcmd usar -I (QUOTED_IDENTIFIER ON).
 SET ANSI_NULLS ON;
@@ -32,6 +32,21 @@ UPDATE dbo.Conexion
 UPDATE dbo.Conexion
    SET ubicacion = REPLACE(ubicacion, 'Salida a Nicoya', 'Salida a Diriá')
  WHERE ubicacion LIKE '%Nicoya%';
+
+UPDATE dbo.Incidencia
+   SET ubicacion = 'Santa Cruz, ' + LTRIM(SUBSTRING(ubicacion, CHARINDEX(',', ubicacion) + 1, 200))
+ WHERE ubicacion LIKE 'Nicoya,%' OR ubicacion LIKE 'Mansi_n,%';
+
+UPDATE i
+   SET i.ubicacion = c.ubicacion
+  FROM dbo.Incidencia i
+  JOIN dbo.Medidor m ON m.id_medidor = i.id_medidor
+  JOIN dbo.Conexion c ON c.id_conexion = m.id_conexion
+ WHERE i.ubicacion IS NULL OR LTRIM(RTRIM(i.ubicacion)) = '' OR i.ubicacion = '—';
+
+UPDATE dbo.Mantenimiento
+   SET descripcion = REPLACE(descripcion, 'AtenciÃ³n', 'Atención')
+ WHERE descripcion LIKE '%AtenciÃ³n%';
 
 COMMIT;
 

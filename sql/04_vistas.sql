@@ -161,10 +161,12 @@ AS
 SELECT
     i.id_incidencia, ti.nombre_incidencia AS tipo, i.prioridad, i.estado,
     i.fecha_incidente, DATEDIFF(HOUR, i.fecha_incidente, GETDATE()) AS horas_abierta,
-    i.descripcion, i.ubicacion, m.numero_serie AS medidor, m.id_conexion
+    i.descripcion, ISNULL(NULLIF(i.ubicacion, ''), c.ubicacion) AS ubicacion,
+    m.numero_serie AS medidor, m.id_conexion
 FROM dbo.Incidencia i
 JOIN dbo.Tipo_Incidencia ti ON ti.id_tipo_incidencia = i.id_tipo_incidencia
 JOIN dbo.Medidor m          ON m.id_medidor = i.id_medidor
+JOIN dbo.Conexion c         ON c.id_conexion = m.id_conexion
 WHERE i.estado IN ('Abierta', 'En proceso');
 GO
 
