@@ -39,37 +39,37 @@ BEGIN
         -- Abonados
         EXEC dbo.sp_Nuevo_Abonado @tipo_identificacion = 'FISICA', @numero_identidad = '901000001', @nombre = 'María',
              @apellido1 = 'Rodríguez', @apellido2 = 'Prueba', @fecha_nacimiento = '1980-03-15',
-             @direccion = 'Nicoya, Barrio Prueba casa 1', @telefono = '8811-0001', @correo_electronico = 'maria@prueba.asada',
+             @direccion = 'Santa Cruz, Barrio Prueba casa 1', @telefono = '8811-0001', @correo_electronico = 'maria@prueba.asada',
              @id_abonado = @a1 OUTPUT, @tipo_abonado = @tipo OUTPUT;
         EXEC dbo.sp_Nuevo_Abonado @tipo_identificacion = 'FISICA', @numero_identidad = '901000002', @nombre = 'José',
              @apellido1 = 'Vargas', @apellido2 = 'Prueba', @fecha_nacimiento = '1975-08-02',
-             @direccion = 'Nicoya, Barrio Prueba casa 2', @telefono = '8811-0002', @correo_electronico = 'jose@prueba.asada',
+             @direccion = 'Santa Cruz, Barrio Prueba casa 2', @telefono = '8811-0002', @correo_electronico = 'jose@prueba.asada',
              @id_abonado = @a2 OUTPUT, @tipo_abonado = @tipo OUTPUT;
         EXEC dbo.sp_Nuevo_Abonado @tipo_identificacion = 'FISICA', @numero_identidad = '901000003', @nombre = 'Lucía',
              @apellido1 = 'Mora', @apellido2 = 'Prueba', @fecha_nacimiento = '1990-11-20',
-             @direccion = 'Mansión, Calle Prueba casa 3', @telefono = '8811-0003', @correo_electronico = 'lucia@prueba.asada',
+             @direccion = 'Santa Cruz, Calle Prueba casa 3', @telefono = '8811-0003', @correo_electronico = 'lucia@prueba.asada',
              @id_abonado = @a3 OUTPUT, @tipo_abonado = @tipo OUTPUT;
         EXEC dbo.sp_Nuevo_Abonado @tipo_identificacion = 'JURIDICA', @numero_identidad = '3101900001', @nombre = 'Soda La Prueba S.A.',
-             @direccion = 'Nicoya, Centro local 4', @telefono = '2685-0004', @correo_electronico = 'soda@prueba.asada',
+             @direccion = 'Santa Cruz, Centro local 4', @telefono = '2685-0004', @correo_electronico = 'soda@prueba.asada',
              @cedula_representante = '901000004', @nombre_representante = 'Pedro', @apellido1_representante = 'Prueba',
              @id_abonado = @j1 OUTPUT, @tipo_abonado = @tipo OUTPUT;
 
         -- Conexiones y medidores
         DECLARE @conexiones TABLE (n int, id_conexion int, id_medidor int);
 
-        EXEC dbo.sp_RegistrarConexion 'FISICO', @a1, @tarifa_res, 'Nicoya, Barrio Prueba casa 1', @c OUTPUT;
+        EXEC dbo.sp_RegistrarConexion 'FISICO', @a1, @tarifa_res, 'Santa Cruz, Barrio Prueba casa 1', @c OUTPUT;
         EXEC dbo.sp_AsignarMedidorConexion @c, 'PRB-0001', 0, 0, @m OUTPUT;
         INSERT INTO @conexiones VALUES (1, @c, @m);
 
-        EXEC dbo.sp_RegistrarConexion 'FISICO', @a2, @tarifa_res, 'Nicoya, Barrio Prueba casa 2', @c OUTPUT;
+        EXEC dbo.sp_RegistrarConexion 'FISICO', @a2, @tarifa_res, 'Santa Cruz, Barrio Prueba casa 2', @c OUTPUT;
         EXEC dbo.sp_AsignarMedidorConexion @c, 'PRB-0002', 0, 0, @m OUTPUT;
         INSERT INTO @conexiones VALUES (2, @c, @m);
 
-        EXEC dbo.sp_RegistrarConexion 'FISICO', @a3, @tarifa_res, 'Mansión, Calle Prueba casa 3', @c OUTPUT;
+        EXEC dbo.sp_RegistrarConexion 'FISICO', @a3, @tarifa_res, 'Santa Cruz, Calle Prueba casa 3', @c OUTPUT;
         EXEC dbo.sp_AsignarMedidorConexion @c, 'PRB-0003', 0, 0, @m OUTPUT;
         INSERT INTO @conexiones VALUES (3, @c, @m);
 
-        EXEC dbo.sp_RegistrarConexion 'JURIDICO', @j1, @tarifa_com, 'Nicoya, Centro local 4', @c OUTPUT;
+        EXEC dbo.sp_RegistrarConexion 'JURIDICO', @j1, @tarifa_com, 'Santa Cruz, Centro local 4', @c OUTPUT;
         EXEC dbo.sp_AsignarMedidorConexion @c, 'PRB-0004', 0, 0, @m OUTPUT;
         INSERT INTO @conexiones VALUES (4, @c, @m);
 
@@ -304,7 +304,7 @@ BEGIN
     BEGIN TRY
         BEGIN TRAN;
         EXEC dbo.sp_Nuevo_Abonado @tipo_identificacion = 'FISICA', @numero_identidad = '909999999', @nombre = 'Nuevo',
-             @apellido1 = 'Abonado', @direccion = 'Nicoya, Prueba T03', @id_abonado = @id OUTPUT, @tipo_abonado = @tipo OUTPUT;
+             @apellido1 = 'Abonado', @direccion = 'Santa Cruz, Prueba T03', @id_abonado = @id OUTPUT, @tipo_abonado = @tipo OUTPUT;
         SELECT @n = COUNT(*) FROM dbo.Bitacora WHERE tabla_afectada = 'Abonado_Fisico' AND accion = 'INSERT'
                                                  AND descripcion LIKE CONCAT('Alta del abonado físico ', @id, ' %');
         ROLLBACK;
@@ -354,7 +354,7 @@ BEGIN
 
     BEGIN TRY
         BEGIN TRAN;
-        EXEC dbo.sp_RegistrarConexion 'FISICO', @a1, @tarifa, 'nicoya, barrio prueba casa 1';
+        EXEC dbo.sp_RegistrarConexion 'FISICO', @a1, @tarifa, 'santa cruz, barrio prueba casa 1';
         IF @@TRANCOUNT > 0 ROLLBACK;
         INSERT @r VALUES ('T07', 'Conexiones', 'Rechaza dos conexiones para la misma ubicación', 'FALLÓ', 'No se produjo el error esperado');
     END TRY

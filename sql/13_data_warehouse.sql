@@ -214,7 +214,7 @@ USE ASADA;
 GO
 
 -- Toma la primera parte de una dirección o ubicación como distrito.
--- Ej.: 'Nicoya, 200 m norte del parque' -> 'Nicoya'
+-- Ej.: 'Santa Cruz, 200 m norte del parque' -> 'Santa Cruz'
 CREATE OR ALTER FUNCTION dbo.fn_ExtraerDistrito (@texto varchar(200))
 RETURNS varchar(50)
 AS

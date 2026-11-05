@@ -122,7 +122,7 @@ INSERT INTO #ab (clave, tipo_id, ident, nombre, direccion, tel, correo, rep_ced,
  ('J01', 'JURIDICA', '3101456789', 'Soda y Restaurante El Sabanero S.A.',            'Santa Cruz, Barrio Los Ángeles, frente a la terminal de buses', '2680-4411', 'sodaelsabanero@demo.cr',       '503112233', 'Hilda',     'Matarrita', 'Leal',     '2014-07-01'),
  ('J02', 'JURIDICA', '3101567890', 'Pulpería y Abastecedor La Esquina S.A.',         'Santa Cruz, Barrio Limón, esquina noreste de la plaza',          '2680-2290', NULL,                           '504223344', 'Ronald',    'Chavarría', 'Gómez',    '2012-03-15'),
  ('J03', 'JURIDICA', '3008123456', 'Junta de Educación Escuela Los Guayacanes',      'Santa Cruz, Barrio Guayacán, 200 m oeste del templo',            '2680-0130', 'esc.losguayacanes@demo.cr',    '502334455', 'Mireya',    'Pizarro',   'Rosales',  '2005-02-01'),
- ('J04', 'JURIDICA', '3008234567', 'Junta Administrativa Colegio Chorotega',         'Santa Cruz, Barrio Chorotega, carretera a Nicoya',               '2680-0255', 'colegio.chorotega@demo.cr',    '503445566', 'Álvaro',    'Contreras', 'Juárez',   '2006-01-20'),
+ ('J04', 'JURIDICA', '3008234567', 'Junta Administrativa Colegio Chorotega',         'Santa Cruz, Barrio Chorotega, carretera a Diriá',               '2680-0255', 'colegio.chorotega@demo.cr',    '503445566', 'Álvaro',    'Contreras', 'Juárez',   '2006-01-20'),
  ('J05', 'JURIDICA', '3002345678', 'Asociación de Desarrollo Integral Barrio Limón', 'Santa Cruz, Barrio Limón, salón comunal',                        '2680-6618', 'adi.barriolimon@demo.cr',      '501556677', 'Teresa',    'Ruiz',      'Cubillo',  '2010-09-09'),
  ('J06', 'JURIDICA', '3101678901', 'Cabinas Brisas del Diriá S.A.',                  'Santa Cruz, salida a Santa Bárbara, 1 km al este',               '2680-8890', 'brisasdiria@demo.cr',          '504667788', 'Esteban',   'Rosales',   'Mena',     '2016-05-23'),
  ('J07', 'JURIDICA', '3101789012', 'Ferretería El Constructor S.A.',                 'Santa Cruz, Barrio San Martín, 50 m sur del banco',              '2680-3021', 'ferreconstructor@demo.cr',     '503778899', 'Wálter',    'Gómez',     'Briceño',  '2015-10-12'),
@@ -138,7 +138,7 @@ INSERT INTO #ab (clave, tipo_id, ident, nombre, direccion, tel, correo, rep_ced,
  ('J17', 'JURIDICA', '3007789016', 'Guardería Infantil Pasitos Felices',             'Santa Cruz, Lomas del Sur, casa 2',                              '2680-9561', 'pasitosfelices@demo.cr',       '503878899', 'Karen',     'Mena',      'Chaves',   '2021-05-10'),
  ('J18', 'JURIDICA', '3101890127', 'Restaurante Mariscos La Bahía S.A.',             'Santa Cruz, centro, 100 m sur de la Municipalidad',              '2680-8125', 'mariscoslabahia@demo.cr',      '505989900', 'Alonso',    'Cubillo',   'Leal',     '2026-06-08'),
  ('J19', 'JURIDICA', '3101901238', 'Heladería Coco Frío S.A.',                       'Santa Cruz, Barrio Buenos Aires, frente al parque',              '2680-1567', NULL,                           '504090011', 'Paola',     'Juárez',    'Viales',   '2019-04-01'),
- ('J20', 'JURIDICA', '3102012349', 'Vivero y Jardinería El Guanacaste Ltda.',        'Santa Cruz, salida a Nicoya, 500 m sur del puente',              '2680-7319', 'viveroelguanacaste@demo.cr',   '502101123', 'Ernesto',   'Lara',      'Rosales',  '2015-09-15');
+ ('J20', 'JURIDICA', '3102012349', 'Vivero y Jardinería El Guanacaste Ltda.',        'Santa Cruz, salida a Diriá, 500 m sur del puente',              '2680-7319', 'viveroelguanacaste@demo.cr',   '502101123', 'Ernesto',   'Lara',      'Rosales',  '2015-09-15');
 
 -- Conexiones. perfil de pago: P puntual, T paga tarde, A paga en abonos,
 -- M deja de pagar desde "corte", N conexión nueva, I se da de baja en "fin".
@@ -196,7 +196,7 @@ INSERT INTO #con (clave, abonado, ubicacion, tarifa, desde, base, perfil, corte,
  ('J17',  'J17', 'Lomas del Sur, Guardería Pasitos Felices', 'Institucional', '2021-05-10',  34, 'P', NULL, NULL, 3),
  ('J18',  'J18', 'Centro, Restaurante Mariscos La Bahía', 'Comercial',     '2026-06-15',  78, 'N', NULL, NULL, 4),
  ('J19',  'J19', 'B. Buenos Aires, Heladería Coco Frío', 'Comercial',     '2019-04-01',  22, 'P', NULL, NULL, 5),
- ('J20',  'J20', 'Salida a Nicoya, Vivero El Guanacaste', 'Comercial',     '2015-09-15',  95, 'T', NULL, NULL, 6);
+ ('J20',  'J20', 'Salida a Diriá, Vivero El Guanacaste', 'Comercial',     '2015-09-15',  95, 'T', NULL, NULL, 6);
 
 -- Meses con fuga (consumo multiplicado): generan alertas de consumo.
 CREATE TABLE #pico (clave varchar(5), mes date, factor decimal(4,2));
