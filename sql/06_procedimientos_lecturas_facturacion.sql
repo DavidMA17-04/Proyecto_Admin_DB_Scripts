@@ -238,7 +238,7 @@ BEGIN
 
     SELECT @facturas_generadas AS facturas_generadas;
     IF EXISTS (SELECT 1 FROM @errores)
-        SELECT * FROM @errores;
+        select id_lectura, mensaje from @errores;
 END;
 GO
 

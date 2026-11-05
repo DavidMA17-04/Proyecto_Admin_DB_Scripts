@@ -258,7 +258,7 @@ BEGIN
 
     SELECT @recargos_procesados AS facturas_procesadas;
     IF EXISTS (SELECT 1 FROM @errores)
-        SELECT * FROM @errores;
+        select id_factura, mensaje from @errores;
 END;
 GO
 

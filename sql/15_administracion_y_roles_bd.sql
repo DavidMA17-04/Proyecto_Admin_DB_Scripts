@@ -36,7 +36,7 @@ BEGIN
 
     IF @solo_reporte = 1
     BEGIN
-        SELECT * FROM #frag ORDER BY fragmentacion DESC;
+        select tabla, indice, fragmentacion, paginas, accion from #frag order by fragmentacion desc;
         RETURN;
     END
 
@@ -148,7 +148,14 @@ BEGIN
     GROUP BY t.nombre_respaldo;
 
     -- 5. Estado del ETL
-    SELECT * FROM dbo.vw_UltimaCargaPorTabla;
+    select
+        vw_UltimaCargaPorTabla.nombre_tabla_destino,
+        vw_UltimaCargaPorTabla.fecha_proceso,
+        vw_UltimaCargaPorTabla.fecha_ultima_carga,
+        vw_UltimaCargaPorTabla.filas_procesadas,
+        vw_UltimaCargaPorTabla.estado,
+        vw_UltimaCargaPorTabla.mensaje_error
+    from dbo.vw_UltimaCargaPorTabla;
 END;
 GO
 
