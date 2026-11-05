@@ -24,6 +24,7 @@ BEGIN
     (
         NAME = 'ASADA_Data',
         FILENAME = 'c:\sqldata\ASADA_Data.mdf',
+        --Tamaño del archivo principal (PRIMARY) de ASADA
         SIZE = 64MB,
         MAXSIZE = 256MB,
         FILEGROWTH = 32MB
@@ -32,6 +33,7 @@ BEGIN
     (
         NAME = 'ASADA_Log',
         FILENAME = 'c:\sqllog\ASADA_Log.ldf',
+        --Tamaño del log de transacciones de ASADA
         SIZE = 512MB,
         MAXSIZE = 2GB,
         FILEGROWTH = 128MB
@@ -75,6 +77,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Abonados_Dat
     (
         NAME = 'Abonados_Data',
         FILENAME = 'c:\sqldata\Abonados_Data.ndf',
+        --Tamaño de Abonados_Data (filegroup Abonados)
         SIZE = 128MB,
         MAXSIZE = 512MB,
         FILEGROWTH = 64MB
@@ -88,6 +91,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Facturacion_
     (
         NAME = 'Facturacion_Data',
         FILENAME = 'c:\sqldata\Facturacion_Data.ndf',
+        --Tamaño de Facturacion_Data (filegroup Facturacion)
         SIZE = 384MB,
         MAXSIZE = 2GB,
         FILEGROWTH = 128MB
@@ -101,6 +105,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Operaciones_
     (
         NAME = 'Operaciones_Data',
         FILENAME = 'c:\sqldata\Operaciones_Data.ndf',
+        --Tamaño de Operaciones_Data (filegroup Operaciones)
         SIZE = 128MB,
         MAXSIZE = 512MB,
         FILEGROWTH = 64MB
@@ -114,6 +119,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Seguridad_Da
     (
         NAME = 'Seguridad_Data',
         FILENAME = 'c:\sqldata\Seguridad_Data.ndf',
+        --Tamaño de Seguridad_Data (filegroup Seguridad)
         SIZE = 64MB,
         MAXSIZE = 256MB,
         FILEGROWTH = 32MB
@@ -127,6 +133,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Auditoria_Da
     (
         NAME = 'Auditoria_Data',
         FILENAME = 'c:\sqldata\Auditoria_Data.ndf',
+        --Tamaño de Auditoria_Data (filegroup Auditoria)
         SIZE = 192MB,
         MAXSIZE = 1280MB,
         FILEGROWTH = 128MB
@@ -140,6 +147,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Administraci
     (
         NAME = 'Administracion_Data',
         FILENAME = 'c:\sqldata\Administracion_Data.ndf',
+        --Tamaño de Administracion_Data (filegroup Administracion)
         SIZE = 64MB,
         MAXSIZE = 256MB,
         FILEGROWTH = 32MB
@@ -173,6 +181,7 @@ BEGIN
     (
         NAME = 'ASADA_DW_Data',
         FILENAME = 'c:\sqldata\ASADA_DW_Data.mdf',
+        --Tamaño del archivo principal (PRIMARY) de ASADA_DW
         SIZE = 64MB,
         MAXSIZE = 256MB,
         FILEGROWTH = 32MB
@@ -181,6 +190,7 @@ BEGIN
     (
         NAME = 'ASADA_DW_Log',
         FILENAME = 'c:\sqllog\ASADA_DW_Log.ldf',
+        --Tamaño del log de transacciones de ASADA_DW
         SIZE = 256MB,
         MAXSIZE = 1GB,
         FILEGROWTH = 64MB
@@ -206,6 +216,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE name = 'DW_Dimens
     (
         NAME = 'DW_Dimensiones_Data',
         FILENAME = 'c:\sqldata\DW_Dimensiones_Data.ndf',
+        --Tamaño de DW_Dimensiones_Data (filegroup DW_Dimensiones)
         SIZE = 128MB,
         MAXSIZE = 512MB,
         FILEGROWTH = 64MB
@@ -219,6 +230,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE name = 'DW_Hechos
     (
         NAME = 'DW_Hechos_Data',
         FILENAME = 'c:\sqldata\DW_Hechos_Data.ndf',
+        --Tamaño de DW_Hechos_Data (filegroup DW_Hechos)
         SIZE = 320MB,
         MAXSIZE = 1280MB,
         FILEGROWTH = 64MB
