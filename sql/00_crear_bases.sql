@@ -8,6 +8,9 @@ GO
 USE master;
 GO
 
+-- Tamaños según la estimación a 10 años (sección 14): ASADA 1 GB de datos (máx. 5 GB)
+-- y log de 512 MB (máx. 2 GB); ASADA_DW 512 MB de datos (máx. 2 GB) y log de 256 MB (máx. 1 GB)
+
 -- Carpetas de los archivos de datos y de log 
 EXECUTE master.dbo.xp_create_subdir 'c:\sqldata';
 EXECUTE master.dbo.xp_create_subdir 'c:\sqllog';
@@ -21,17 +24,17 @@ BEGIN
     (
         NAME = 'ASADA_Data',
         FILENAME = 'c:\sqldata\ASADA_Data.mdf',
-        SIZE = 100MB,
-        MAXSIZE = 500MB,
-        FILEGROWTH = 25MB
+        SIZE = 64MB,
+        MAXSIZE = 256MB,
+        FILEGROWTH = 32MB
     )
     LOG ON
     (
         NAME = 'ASADA_Log',
         FILENAME = 'c:\sqllog\ASADA_Log.ldf',
-        SIZE = 100MB,
-        MAXSIZE = 500MB,
-        FILEGROWTH = 25MB
+        SIZE = 512MB,
+        MAXSIZE = 2GB,
+        FILEGROWTH = 128MB
     );
 END
 GO
@@ -72,9 +75,9 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Abonados_Dat
     (
         NAME = 'Abonados_Data',
         FILENAME = 'c:\sqldata\Abonados_Data.ndf',
-        SIZE = 100MB,
-        MAXSIZE = 700MB,
-        FILEGROWTH = 50MB
+        SIZE = 128MB,
+        MAXSIZE = 512MB,
+        FILEGROWTH = 64MB
     ) TO FILEGROUP Abonados;
 GO
 
@@ -85,9 +88,9 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Facturacion_
     (
         NAME = 'Facturacion_Data',
         FILENAME = 'c:\sqldata\Facturacion_Data.ndf',
-        SIZE = 150MB,
-        MAXSIZE = 1000MB,
-        FILEGROWTH = 50MB
+        SIZE = 384MB,
+        MAXSIZE = 2GB,
+        FILEGROWTH = 128MB
     ) TO FILEGROUP Facturacion;
 GO
 
@@ -98,9 +101,9 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Operaciones_
     (
         NAME = 'Operaciones_Data',
         FILENAME = 'c:\sqldata\Operaciones_Data.ndf',
-        SIZE = 80MB,
-        MAXSIZE = 500MB,
-        FILEGROWTH = 50MB
+        SIZE = 128MB,
+        MAXSIZE = 512MB,
+        FILEGROWTH = 64MB
     ) TO FILEGROUP Operaciones;
 GO
 
@@ -111,9 +114,9 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Seguridad_Da
     (
         NAME = 'Seguridad_Data',
         FILENAME = 'c:\sqldata\Seguridad_Data.ndf',
-        SIZE = 50MB,
-        MAXSIZE = 300MB,
-        FILEGROWTH = 25MB
+        SIZE = 64MB,
+        MAXSIZE = 256MB,
+        FILEGROWTH = 32MB
     ) TO FILEGROUP Seguridad;
 GO
 
@@ -124,9 +127,9 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Auditoria_Da
     (
         NAME = 'Auditoria_Data',
         FILENAME = 'c:\sqldata\Auditoria_Data.ndf',
-        SIZE = 100MB,
-        MAXSIZE = 1000MB,
-        FILEGROWTH = 50MB
+        SIZE = 192MB,
+        MAXSIZE = 1280MB,
+        FILEGROWTH = 128MB
     ) TO FILEGROUP Auditoria;
 GO
 
@@ -137,9 +140,9 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Administraci
     (
         NAME = 'Administracion_Data',
         FILENAME = 'c:\sqldata\Administracion_Data.ndf',
-        SIZE = 50MB,
-        MAXSIZE = 300MB,
-        FILEGROWTH = 25MB
+        SIZE = 64MB,
+        MAXSIZE = 256MB,
+        FILEGROWTH = 32MB
     ) TO FILEGROUP Administracion;
 GO
 
@@ -170,17 +173,17 @@ BEGIN
     (
         NAME = 'ASADA_DW_Data',
         FILENAME = 'c:\sqldata\ASADA_DW_Data.mdf',
-        SIZE = 50MB,
-        MAXSIZE = 300MB,
-        FILEGROWTH = 25MB
+        SIZE = 64MB,
+        MAXSIZE = 256MB,
+        FILEGROWTH = 32MB
     )
     LOG ON
     (
         NAME = 'ASADA_DW_Log',
         FILENAME = 'c:\sqllog\ASADA_DW_Log.ldf',
-        SIZE = 50MB,
-        MAXSIZE = 300MB,
-        FILEGROWTH = 25MB
+        SIZE = 256MB,
+        MAXSIZE = 1GB,
+        FILEGROWTH = 64MB
     );
 END
 GO
@@ -203,9 +206,9 @@ IF NOT EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE name = 'DW_Dimens
     (
         NAME = 'DW_Dimensiones_Data',
         FILENAME = 'c:\sqldata\DW_Dimensiones_Data.ndf',
-        SIZE = 50MB,
-        MAXSIZE = 300MB,
-        FILEGROWTH = 25MB
+        SIZE = 128MB,
+        MAXSIZE = 512MB,
+        FILEGROWTH = 64MB
     ) TO FILEGROUP DW_Dimensiones;
 GO
 
@@ -216,9 +219,9 @@ IF NOT EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE name = 'DW_Hechos
     (
         NAME = 'DW_Hechos_Data',
         FILENAME = 'c:\sqldata\DW_Hechos_Data.ndf',
-        SIZE = 100MB,
-        MAXSIZE = 1000MB,
-        FILEGROWTH = 50MB
+        SIZE = 320MB,
+        MAXSIZE = 1280MB,
+        FILEGROWTH = 64MB
     ) TO FILEGROUP DW_Hechos;
 GO
 
