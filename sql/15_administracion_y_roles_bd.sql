@@ -137,15 +137,15 @@ BEGIN
         SELECT 'Sin permiso VIEW SERVER STATE para ver estadísticas de consultas.' AS aviso;
     END CATCH
 
-    -- 4. Último respaldo por tipo
-    SELECT t.nombre_respaldo AS tipo,
+    -- 4. Último respaldo por base y tipo
+    SELECT p.nombre_base, t.nombre_respaldo AS tipo,
            MAX(CASE WHEN h.estado = 'Exitoso' THEN h.fecha_inicio END) AS ultimo_respaldo_exitoso,
            DATEDIFF(HOUR, MAX(CASE WHEN h.estado = 'Exitoso' THEN h.fecha_inicio END), GETDATE()) AS horas_desde_ultimo,
            SUM(CASE WHEN h.estado = 'Fallido' AND h.fecha_inicio >= DATEADD(DAY, -7, GETDATE()) THEN 1 ELSE 0 END) AS fallidos_7_dias
     FROM dbo.Tipo_Respaldo t
     LEFT JOIN dbo.Politica_Respaldo p  ON p.id_tipo_respaldo = t.id_tipo_respaldo
     LEFT JOIN dbo.Historial_Respaldo h ON h.id_politica = p.id_politica
-    GROUP BY t.nombre_respaldo;
+    GROUP BY p.nombre_base, t.nombre_respaldo;
 
     -- 5. Estado del ETL
     select

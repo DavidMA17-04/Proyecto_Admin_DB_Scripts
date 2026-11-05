@@ -6,6 +6,12 @@ SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 
+-- Variables de rutas (sobrescribir con sqlcmd -v al instalar en otra unidad/carpeta).
+:setvar RutaDatos "c:\sqldata"
+:setvar RutaLog "c:\sqllog"
+:setvar RutaRespaldosASADA "C:\Respaldos\ASADA\"
+:setvar RutaRespaldosASADA_DW "C:\Respaldos\ASADA_DW\"
+
 :r 00_crear_bases.sql
 :r 01_tablas.sql
 :r 02_indices.sql

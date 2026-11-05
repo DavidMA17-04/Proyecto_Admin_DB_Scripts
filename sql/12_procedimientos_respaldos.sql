@@ -19,14 +19,25 @@ CREATE OR ALTER PROCEDURE dbo.sp_GestionarPoliticaRespaldo
     @retencion_dias    int,
     @ruta_destino      varchar(300),
     @activo            bit = 1,
+    @nombre_base       sysname = 'ASADA',
     @id_politica       int = NULL OUTPUT
 AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
+    IF @nombre_base NOT IN ('ASADA', 'ASADA_DW')
+        THROW 50812, 'La base de la política debe ser ASADA o ASADA_DW.', 1;
+
+    IF DB_ID(@nombre_base) IS NULL
+        THROW 50813, 'La base indicada en la política no existe en el servidor.', 1;
+
     IF NOT EXISTS (SELECT 1 FROM dbo.Tipo_Respaldo WHERE id_tipo_respaldo = @id_tipo_respaldo)
         THROW 50801, 'El tipo de respaldo indicado no existe.', 1;
+
+    IF @nombre_base = 'ASADA_DW'
+       AND EXISTS (SELECT 1 FROM dbo.Tipo_Respaldo WHERE id_tipo_respaldo = @id_tipo_respaldo AND nombre_respaldo <> 'Completo')
+        THROW 50814, 'ASADA_DW solo admite políticas de respaldo completo.', 1;
 
     IF @retencion_dias <= 0
         THROW 50802, 'Los días de retención deben ser mayores que cero.', 1;
@@ -40,14 +51,14 @@ BEGIN
 
     IF @id_politica IS NULL
     BEGIN
-        INSERT INTO dbo.Politica_Respaldo (id_tipo_respaldo, nombre_politica, frecuencia, hora_ejecucion, retencion_dias, ruta_destino, activo)
-        VALUES (@id_tipo_respaldo, @nombre_politica, @frecuencia, @hora_ejecucion, @retencion_dias, @ruta_destino, @activo);
+        INSERT INTO dbo.Politica_Respaldo (id_tipo_respaldo, nombre_base, nombre_politica, frecuencia, hora_ejecucion, retencion_dias, ruta_destino, activo)
+        VALUES (@id_tipo_respaldo, @nombre_base, @nombre_politica, @frecuencia, @hora_ejecucion, @retencion_dias, @ruta_destino, @activo);
         SET @id_politica = SCOPE_IDENTITY();
     END
     ELSE
     BEGIN
         UPDATE dbo.Politica_Respaldo
-        SET id_tipo_respaldo = @id_tipo_respaldo, nombre_politica = @nombre_politica, frecuencia = @frecuencia,
+        SET id_tipo_respaldo = @id_tipo_respaldo, nombre_base = @nombre_base, nombre_politica = @nombre_politica, frecuencia = @frecuencia,
             hora_ejecucion = @hora_ejecucion, retencion_dias = @retencion_dias, ruta_destino = @ruta_destino, activo = @activo
         WHERE id_politica = @id_politica;
 
@@ -124,9 +135,10 @@ BEGIN
 
     DECLARE @tipo varchar(15), @ruta varchar(300), @activo bit,
             @archivo nvarchar(400), @sql nvarchar(max), @inicio datetime = GETDATE(),
-            @tamano bigint, @mensaje varchar(500), @base sysname = DB_NAME(), @fin datetime;
+            @tamano bigint, @mensaje varchar(500), @base sysname, @fin datetime,
+            @recovery varchar(20);
 
-    SELECT @tipo = t.nombre_respaldo, @ruta = p.ruta_destino, @activo = p.activo
+    SELECT @tipo = t.nombre_respaldo, @ruta = p.ruta_destino, @activo = p.activo, @base = p.nombre_base
     FROM dbo.Politica_Respaldo p
     JOIN dbo.Tipo_Respaldo t ON t.id_tipo_respaldo = p.id_tipo_respaldo
     WHERE p.id_politica = @id_politica;
@@ -136,6 +148,23 @@ BEGIN
 
     IF @activo = 0
         THROW 50805, 'La política está desactivada.', 1;
+
+    IF @base NOT IN ('ASADA', 'ASADA_DW')
+        THROW 50812, 'Base de respaldo no permitida.', 1;
+
+    IF DB_ID(@base) IS NULL
+        THROW 50813, 'La base indicada en la política no existe en el servidor.', 1;
+
+    IF @base = 'ASADA_DW' AND @tipo <> 'Completo'
+        THROW 50814, 'ASADA_DW solo admite respaldo completo (recuperación SIMPLE).', 1;
+
+    SELECT @recovery = recovery_model_desc FROM sys.databases WHERE name = @base;
+
+    IF @tipo = 'Log' AND @recovery <> 'FULL'
+        THROW 50815, 'No se puede respaldar el log de una base que no está en recuperación FULL.', 1;
+
+    IF @tipo IN ('Diferencial', 'Log') AND @base <> 'ASADA'
+        THROW 50816, 'Solo ASADA admite respaldos diferenciales o de log.', 1;
 
     SET @archivo = CONCAT(@ruta, @base, '_', @tipo, '_', FORMAT(@inicio, 'yyyyMMdd_HHmmss'),
                           CASE @tipo WHEN 'Log' THEN '.trn' ELSE '.bak' END);
@@ -157,6 +186,7 @@ BEGIN
             FROM msdb.dbo.backupset bs
             JOIN msdb.dbo.backupmediafamily mf ON mf.media_set_id = bs.media_set_id
             WHERE mf.physical_device_name = @archivo
+              AND bs.database_name = @base
             ORDER BY bs.backup_set_id DESC;
         END TRY
         BEGIN CATCH
@@ -259,14 +289,20 @@ BEGIN
     IF @base_destino = @base AND @solo_generar_script = 0
         THROW 50808, 'No se puede restaurar sobre la base en uso desde ella misma. Restaure en otra base o genere el script (@solo_generar_script = 1) y ejecútelo desde master.', 1;
 
-    -- Respaldos exitosos de esta base con su información de LSN en msdb.
+    IF @base <> 'ASADA'
+        THROW 50817, 'La restauración a punto en el tiempo solo está disponible para la base operativa ASADA.', 1;
+
+    -- Respaldos exitosos de ASADA (política operativa) con su información de LSN en msdb.
     SELECT h.id_respaldo, h.ruta_archivo, bs.type, bs.first_lsn, bs.last_lsn, bs.checkpoint_lsn,
            bs.differential_base_lsn, bs.backup_finish_date
     INTO #respaldos
     FROM dbo.Historial_Respaldo h
+    JOIN dbo.Politica_Respaldo pr       ON pr.id_politica = h.id_politica
     JOIN msdb.dbo.backupmediafamily mf ON mf.physical_device_name = h.ruta_archivo
     JOIN msdb.dbo.backupset bs         ON bs.media_set_id = mf.media_set_id
-    WHERE h.estado = 'Exitoso' AND bs.database_name = @base;
+    WHERE h.estado = 'Exitoso'
+      AND pr.nombre_base = 'ASADA'
+      AND bs.database_name = 'ASADA';
 
     -- 1) Último respaldo completo terminado antes del punto.
     SELECT TOP (1) @full_ruta = ruta_archivo, @full_ckpt = checkpoint_lsn, @full_last = last_lsn
@@ -371,7 +407,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT h.id_respaldo, p.nombre_politica, t.nombre_respaldo AS tipo,
+    SELECT h.id_respaldo, p.nombre_base, p.nombre_politica, t.nombre_respaldo AS tipo,
            h.fecha_inicio, h.fecha_fin, dbo.fn_CalcularDuracionRespaldo(h.id_respaldo) AS duracion_segundos,
            h.ruta_archivo, h.tamano_bytes, h.estado, h.verificado, h.mensaje_error,
            dbo.fn_CalcularFechaRetencionRespaldo(h.id_respaldo) AS conservar_hasta

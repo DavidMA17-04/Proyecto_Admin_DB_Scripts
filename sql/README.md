@@ -6,7 +6,7 @@ Implementación en SQL Server de las secciones 6, 12 y 14 del documento *Proyect
 
 Requisitos: SQL Server 2019 o superior (Developer, Standard o Express) y SSMS o `sqlcmd`.
 
-1. Revise la ruta de respaldos en `16_datos_iniciales.sql` (`@ruta_respaldos`). La carpeta debe existir.
+1. Revise las rutas de respaldos en `16_datos_iniciales.sql` (`@ruta_respaldos`, `@ruta_respaldos_dw`). Las carpetas deben existir (el instalador las crea).
 2. Ejecute `ejecutar_todo.sql` en **modo SQLCMD** (SSMS: menú *Consulta → Modo SQLCMD*), o desde la consola:
 
    ```
@@ -68,8 +68,12 @@ Si ejecuta pruebas de la API que crean empleados de prueba (`backend/pruebas/seg
 | 14 | Triggers de auditoría, historial y reglas automáticas |
 | 15 | Mantenimiento de índices, integridad, monitoreo y roles de base de datos |
 | 16 | Datos iniciales: catálogos, tarifas, roles y permisos según la matriz de acceso, políticas de respaldo |
-| 17 | Jobs de SQL Server Agent (respaldos, ETL, mantenimiento nocturno) |
+| 17 | Jobs de SQL Server Agent (respaldos ASADA/ASADA_DW, ETL, mantenimiento nocturno) |
 | 18 | Datos de prueba, limpieza y casos de prueba |
+| 22 | Migración incremental: columna `nombre_base` en políticas de respaldo y procedimientos multibase (bases ya instaladas) |
+| verificar_instalacion.sql | Diagnóstico de solo lectura (bases, políticas, jobs, demo, FACT) |
+
+Variables de ruta en instalación nueva (`ejecutar_todo.sql`: `RutaDatos`, `RutaLog`, `RutaRespaldosASADA`, `RutaRespaldosASADA_DW`; sobrescribir con `sqlcmd -v` o el instalador en `backend/deploy`).
 
 ## Cómo se registra quién hace cada cambio
 

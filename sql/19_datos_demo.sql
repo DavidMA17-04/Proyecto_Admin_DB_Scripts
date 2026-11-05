@@ -47,7 +47,7 @@ PRINT 'Respaldo completo previo...';
 DECLARE @politica int;
 SELECT @politica = p.id_politica FROM dbo.Politica_Respaldo p
 JOIN dbo.Tipo_Respaldo t ON t.id_tipo_respaldo = p.id_tipo_respaldo
-WHERE t.nombre_respaldo = 'Completo' AND p.activo = 1;
+WHERE t.nombre_respaldo = 'Completo' AND p.nombre_base = 'ASADA' AND p.activo = 1;
 EXEC dbo.sp_EjecutarRespaldo @id_politica = @politica;
 GO
 
@@ -708,12 +708,12 @@ PRINT 'Respaldos diferencial y de log...';
 DECLARE @politica int;
 SELECT @politica = p.id_politica FROM dbo.Politica_Respaldo p
 JOIN dbo.Tipo_Respaldo t ON t.id_tipo_respaldo = p.id_tipo_respaldo
-WHERE t.nombre_respaldo = 'Diferencial' AND p.activo = 1;
+WHERE t.nombre_respaldo = 'Diferencial' AND p.nombre_base = 'ASADA' AND p.activo = 1;
 EXEC dbo.sp_EjecutarRespaldo @id_politica = @politica;
 
 SELECT @politica = p.id_politica FROM dbo.Politica_Respaldo p
 JOIN dbo.Tipo_Respaldo t ON t.id_tipo_respaldo = p.id_tipo_respaldo
-WHERE t.nombre_respaldo = 'Log' AND p.activo = 1;
+WHERE t.nombre_respaldo = 'Log' AND p.nombre_base = 'ASADA' AND p.activo = 1;
 EXEC dbo.sp_EjecutarRespaldo @id_politica = @politica;
 GO
 

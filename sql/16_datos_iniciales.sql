@@ -61,16 +61,23 @@ GO
 INSERT INTO dbo.Tipo_Respaldo (nombre_respaldo) VALUES ('Completo'), ('Diferencial'), ('Log');
 GO
 
-DECLARE @ruta_respaldos varchar(300) = 'C:\Respaldos\ASADA\';   -- <== AJUSTAR
+-- Rutas sustituidas por sqlcmd (-v o :setvar en ejecutar_todo.sql). Deben terminar en \ o /.
+DECLARE @ruta_respaldos varchar(300) = N'$(RutaRespaldosASADA)';
+DECLARE @ruta_respaldos_dw varchar(300) = N'$(RutaRespaldosASADA_DW)';
 
-INSERT INTO dbo.Politica_Respaldo (id_tipo_respaldo, nombre_politica, frecuencia, hora_ejecucion, retencion_dias, ruta_destino)
-SELECT t.id_tipo_respaldo, p.nombre, p.frecuencia, p.hora, p.retencion, @ruta_respaldos
+INSERT INTO dbo.Politica_Respaldo (id_tipo_respaldo, nombre_base, nombre_politica, frecuencia, hora_ejecucion, retencion_dias, ruta_destino)
+SELECT t.id_tipo_respaldo, 'ASADA', p.nombre, p.frecuencia, p.hora, p.retencion, @ruta_respaldos
 FROM (VALUES
     ('Completo',    'Respaldo completo semanal',        'Semanal (domingo)',          '01:00', 30),
     ('Diferencial', 'Respaldo diferencial diario',      'Diario (lunes a sábado)',    '01:00', 14),
     ('Log',         'Respaldo del log cada 15 minutos', 'Cada 15 minutos',            '00:00', 7)
 ) p(tipo, nombre, frecuencia, hora, retencion)
 JOIN dbo.Tipo_Respaldo t ON t.nombre_respaldo = p.tipo;
+
+INSERT INTO dbo.Politica_Respaldo (id_tipo_respaldo, nombre_base, nombre_politica, frecuencia, hora_ejecucion, retencion_dias, ruta_destino)
+SELECT t.id_tipo_respaldo, 'ASADA_DW', 'Respaldo completo diario ASADA_DW', 'Diario (post-ETL)', '02:30', 14, @ruta_respaldos_dw
+FROM dbo.Tipo_Respaldo t
+WHERE t.nombre_respaldo = 'Completo';
 GO
 
    --Roles, módulos y permisos de la aplicación 

@@ -435,6 +435,7 @@ GO
 CREATE TABLE dbo.Politica_Respaldo (
     id_politica       int IDENTITY(1,1) NOT NULL,
     id_tipo_respaldo  int          NOT NULL,
+    nombre_base       sysname      NOT NULL CONSTRAINT DF_PoliticaRespaldo_Base DEFAULT ('ASADA'),
     nombre_politica   varchar(100) NOT NULL,
     frecuencia        varchar(50)  NOT NULL,
     hora_ejecucion    time(0)      NOT NULL,
@@ -444,7 +445,8 @@ CREATE TABLE dbo.Politica_Respaldo (
     fecha_creacion    datetime     NOT NULL CONSTRAINT DF_PoliticaRespaldo_Fecha DEFAULT (GETDATE()),
     CONSTRAINT PK_Politica_Respaldo PRIMARY KEY (id_politica),
     CONSTRAINT FK_PoliticaRespaldo_Tipo FOREIGN KEY (id_tipo_respaldo) REFERENCES dbo.Tipo_Respaldo (id_tipo_respaldo),
-    CONSTRAINT CK_PoliticaRespaldo_Retencion CHECK (retencion_dias > 0)
+    CONSTRAINT CK_PoliticaRespaldo_Retencion CHECK (retencion_dias > 0),
+    CONSTRAINT CK_PoliticaRespaldo_Base CHECK (nombre_base IN ('ASADA', 'ASADA_DW'))
 ) ON Administracion;
 GO
 

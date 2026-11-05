@@ -16,7 +16,8 @@ CREATE OR ALTER PROCEDURE dbo.sp_ASADA_CrearJob
     @freq_interval          int,          -- diario: 1 | semanal: suma de días (1 dom, 2 lun, 4 mar, 8 mié, 16 jue, 32 vie, 64 sáb)
     @hora_inicio            int,          -- HHMMSS
     @freq_subday_type       int = 1,      -- 1 = una vez, 4 = cada N minutos
-    @freq_subday_interval   int = 0
+    @freq_subday_interval   int = 0,
+    @enabled                bit = 0       -- deshabilitado hasta activación controlada
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -24,7 +25,7 @@ BEGIN
     IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = @nombre)
         EXEC msdb.dbo.sp_delete_job @job_name = @nombre, @delete_unused_schedule = 1;
 
-    EXEC msdb.dbo.sp_add_job @job_name = @nombre, @description = @descripcion, @enabled = 1;
+    EXEC msdb.dbo.sp_add_job @job_name = @nombre, @description = @descripcion, @enabled = @enabled;
 
     EXEC msdb.dbo.sp_add_jobstep
         @job_name = @nombre, @step_name = N'Ejecutar', @subsystem = N'TSQL',
@@ -33,7 +34,7 @@ BEGIN
 
     DECLARE @horario sysname = @nombre + N' - horario';
     EXEC msdb.dbo.sp_add_schedule
-        @schedule_name = @horario, @enabled = 1,
+        @schedule_name = @horario, @enabled = @enabled,
         @freq_type = @freq_type, @freq_interval = @freq_interval,
         @freq_recurrence_factor = 1,
         @freq_subday_type = @freq_subday_type, @freq_subday_interval = @freq_subday_interval,
@@ -50,7 +51,7 @@ EXEC dbo.sp_ASADA_CrearJob
     @descripcion = N'ASADA - Respaldo completo semanal (R10).',
     @comando = N'DECLARE @p int = (SELECT TOP (1) p.id_politica FROM dbo.Politica_Respaldo p
                  JOIN dbo.Tipo_Respaldo t ON t.id_tipo_respaldo = p.id_tipo_respaldo
-                 WHERE t.nombre_respaldo = ''Completo'' AND p.activo = 1 ORDER BY p.id_politica);
+                 WHERE t.nombre_respaldo = ''Completo'' AND p.nombre_base = ''ASADA'' AND p.activo = 1 ORDER BY p.id_politica);
                  EXEC dbo.sp_EjecutarRespaldo @id_politica = @p;',
     @freq_type = 8, @freq_interval = 1, @hora_inicio = 010000;
 
@@ -60,7 +61,7 @@ EXEC dbo.sp_ASADA_CrearJob
     @descripcion = N'ASADA - Respaldo diferencial diario sobre el último completo (R10).',
     @comando = N'DECLARE @p int = (SELECT TOP (1) p.id_politica FROM dbo.Politica_Respaldo p
                  JOIN dbo.Tipo_Respaldo t ON t.id_tipo_respaldo = p.id_tipo_respaldo
-                 WHERE t.nombre_respaldo = ''Diferencial'' AND p.activo = 1 ORDER BY p.id_politica);
+                 WHERE t.nombre_respaldo = ''Diferencial'' AND p.nombre_base = ''ASADA'' AND p.activo = 1 ORDER BY p.id_politica);
                  EXEC dbo.sp_EjecutarRespaldo @id_politica = @p;',
     @freq_type = 8, @freq_interval = 126, @hora_inicio = 010000;
 
@@ -70,10 +71,20 @@ EXEC dbo.sp_ASADA_CrearJob
     @descripcion = N'ASADA - Respaldo del log de transacciones cada 15 minutos (Point-in-Time).',
     @comando = N'DECLARE @p int = (SELECT TOP (1) p.id_politica FROM dbo.Politica_Respaldo p
                  JOIN dbo.Tipo_Respaldo t ON t.id_tipo_respaldo = p.id_tipo_respaldo
-                 WHERE t.nombre_respaldo = ''Log'' AND p.activo = 1 ORDER BY p.id_politica);
+                 WHERE t.nombre_respaldo = ''Log'' AND p.nombre_base = ''ASADA'' AND p.activo = 1 ORDER BY p.id_politica);
                  EXEC dbo.sp_EjecutarRespaldo @id_politica = @p, @verificar = 0;',
     @freq_type = 4, @freq_interval = 1, @hora_inicio = 000000,
     @freq_subday_type = 4, @freq_subday_interval = 15;
+
+-- Respaldo completo ASADA_DW: diario a las 02:30 (post-ETL 02:00)
+EXEC dbo.sp_ASADA_CrearJob
+    @nombre = N'Job_RespaldoCompletoDW',
+    @descripcion = N'ASADA_DW - Respaldo completo diario del Data Warehouse (post-ETL).',
+    @comando = N'DECLARE @p int = (SELECT TOP (1) p.id_politica FROM dbo.Politica_Respaldo p
+                 JOIN dbo.Tipo_Respaldo t ON t.id_tipo_respaldo = p.id_tipo_respaldo
+                 WHERE t.nombre_respaldo = ''Completo'' AND p.nombre_base = ''ASADA_DW'' AND p.activo = 1 ORDER BY p.id_politica);
+                 EXEC dbo.sp_EjecutarRespaldo @id_politica = @p;',
+    @freq_type = 4, @freq_interval = 1, @hora_inicio = 023000;
 
 -- Carga del Data Warehouse: todos los días a las 02:00
 EXEC dbo.sp_ASADA_CrearJob

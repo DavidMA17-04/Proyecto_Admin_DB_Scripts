@@ -11,9 +11,10 @@ GO
 -- Tamaños según la estimación a 10 años (sección 14): ASADA 1 GB de datos (máx. 5 GB)
 -- y log de 512 MB (máx. 2 GB); ASADA_DW 512 MB de datos (máx. 2 GB) y log de 256 MB (máx. 1 GB)
 
--- Carpetas de los archivos de datos y de log 
-EXECUTE master.dbo.xp_create_subdir 'c:\sqldata';
-EXECUTE master.dbo.xp_create_subdir 'c:\sqllog';
+-- Carpetas de datos/log: variables sqlcmd RutaDatos y RutaLog (ver ejecutar_todo.sql).
+-- Solo aplica en instalación nueva; no mueve archivos de bases ya creadas.
+EXECUTE master.dbo.xp_create_subdir '$(RutaDatos)';
+EXECUTE master.dbo.xp_create_subdir '$(RutaLog)';
 GO
 
    --Base transaccional ASADA
@@ -23,7 +24,7 @@ BEGIN
     ON PRIMARY
     (
         NAME = 'ASADA_Data',
-        FILENAME = 'c:\sqldata\ASADA_Data.mdf',
+        FILENAME = '$(RutaDatos)\ASADA_Data.mdf',
         --Tamaño del archivo principal (PRIMARY) de ASADA
         SIZE = 64MB,
         MAXSIZE = 256MB,
@@ -32,7 +33,7 @@ BEGIN
     LOG ON
     (
         NAME = 'ASADA_Log',
-        FILENAME = 'c:\sqllog\ASADA_Log.ldf',
+        FILENAME = '$(RutaLog)\ASADA_Log.ldf',
         --Tamaño del log de transacciones de ASADA
         SIZE = 512MB,
         MAXSIZE = 2GB,
@@ -76,7 +77,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Abonados_Dat
     ADD FILE
     (
         NAME = 'Abonados_Data',
-        FILENAME = 'c:\sqldata\Abonados_Data.ndf',
+        FILENAME = '$(RutaDatos)\Abonados_Data.ndf',
         --Tamaño de Abonados_Data (filegroup Abonados)
         SIZE = 128MB,
         MAXSIZE = 512MB,
@@ -90,7 +91,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Facturacion_
     ADD FILE
     (
         NAME = 'Facturacion_Data',
-        FILENAME = 'c:\sqldata\Facturacion_Data.ndf',
+        FILENAME = '$(RutaDatos)\Facturacion_Data.ndf',
         --Tamaño de Facturacion_Data (filegroup Facturacion)
         SIZE = 384MB,
         MAXSIZE = 2GB,
@@ -104,7 +105,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Operaciones_
     ADD FILE
     (
         NAME = 'Operaciones_Data',
-        FILENAME = 'c:\sqldata\Operaciones_Data.ndf',
+        FILENAME = '$(RutaDatos)\Operaciones_Data.ndf',
         --Tamaño de Operaciones_Data (filegroup Operaciones)
         SIZE = 128MB,
         MAXSIZE = 512MB,
@@ -118,7 +119,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Seguridad_Da
     ADD FILE
     (
         NAME = 'Seguridad_Data',
-        FILENAME = 'c:\sqldata\Seguridad_Data.ndf',
+        FILENAME = '$(RutaDatos)\Seguridad_Data.ndf',
         --Tamaño de Seguridad_Data (filegroup Seguridad)
         SIZE = 64MB,
         MAXSIZE = 256MB,
@@ -132,7 +133,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Auditoria_Da
     ADD FILE
     (
         NAME = 'Auditoria_Data',
-        FILENAME = 'c:\sqldata\Auditoria_Data.ndf',
+        FILENAME = '$(RutaDatos)\Auditoria_Data.ndf',
         --Tamaño de Auditoria_Data (filegroup Auditoria)
         SIZE = 192MB,
         MAXSIZE = 1280MB,
@@ -146,7 +147,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA.sys.database_files WHERE name = 'Administraci
     ADD FILE
     (
         NAME = 'Administracion_Data',
-        FILENAME = 'c:\sqldata\Administracion_Data.ndf',
+        FILENAME = '$(RutaDatos)\Administracion_Data.ndf',
         --Tamaño de Administracion_Data (filegroup Administracion)
         SIZE = 64MB,
         MAXSIZE = 256MB,
@@ -180,7 +181,7 @@ BEGIN
     ON PRIMARY
     (
         NAME = 'ASADA_DW_Data',
-        FILENAME = 'c:\sqldata\ASADA_DW_Data.mdf',
+        FILENAME = '$(RutaDatos)\ASADA_DW_Data.mdf',
         --Tamaño del archivo principal (PRIMARY) de ASADA_DW
         SIZE = 64MB,
         MAXSIZE = 256MB,
@@ -189,7 +190,7 @@ BEGIN
     LOG ON
     (
         NAME = 'ASADA_DW_Log',
-        FILENAME = 'c:\sqllog\ASADA_DW_Log.ldf',
+        FILENAME = '$(RutaLog)\ASADA_DW_Log.ldf',
         --Tamaño del log de transacciones de ASADA_DW
         SIZE = 256MB,
         MAXSIZE = 1GB,
@@ -215,7 +216,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE name = 'DW_Dimens
     ADD FILE
     (
         NAME = 'DW_Dimensiones_Data',
-        FILENAME = 'c:\sqldata\DW_Dimensiones_Data.ndf',
+        FILENAME = '$(RutaDatos)\DW_Dimensiones_Data.ndf',
         --Tamaño de DW_Dimensiones_Data (filegroup DW_Dimensiones)
         SIZE = 128MB,
         MAXSIZE = 512MB,
@@ -229,7 +230,7 @@ IF NOT EXISTS (SELECT 1 FROM ASADA_DW.sys.database_files WHERE name = 'DW_Hechos
     ADD FILE
     (
         NAME = 'DW_Hechos_Data',
-        FILENAME = 'c:\sqldata\DW_Hechos_Data.ndf',
+        FILENAME = '$(RutaDatos)\DW_Hechos_Data.ndf',
         --Tamaño de DW_Hechos_Data (filegroup DW_Hechos)
         SIZE = 320MB,
         MAXSIZE = 1280MB,
