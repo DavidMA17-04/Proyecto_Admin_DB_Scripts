@@ -2,6 +2,14 @@
    Migración incremental: políticas de respaldo por base (ASADA / ASADA_DW).
    Idempotente. No borra historial ni recrea tablas.
    Uso: sqlcmd -S localhost -E -C -b -f 65001 -i 22_migracion_respaldos_dw.sql
+
+   Criterio de "aplicada" (deploy / verificar_instalacion.sql, metadatos):
+     1) Politica_Respaldo.nombre_base
+     2) CHECK CK_PoliticaRespaldo_Base
+     3) fila Politica_Respaldo con nombre_base = ASADA_DW
+     4) sp_EjecutarRespaldo
+     5) parámetro @nombre_base en sp_GestionarPoliticaRespaldo (script 12)
+   Applied = 5/5 | Pending = 0/5 | Partial = 1..4/5 (no migrar automáticamente).
    --------------------------------------------------------------------- */
 :on error exit
 SET ANSI_NULLS ON;
